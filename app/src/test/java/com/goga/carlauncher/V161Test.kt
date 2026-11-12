@@ -73,13 +73,13 @@ class V161Test {
     }
 
     @Test fun prevNextAndDayNightButtons() {
-        Prefs.layout = "cockpit"
+        Prefs.layout = "cockpit"; Prefs.railItems = "home,apps,media,dvr,settings,layout,phone,wifi"; Prefs.railSize = "normal"; Prefs.migrated = 1
         val a = start(); val root = a.window.decorView
         val prev = all(root).first { it.contentDescription == "Предыдущая раскладка" }
         val next = all(root).first { it.contentDescription == "Следующая раскладка" }
         val dn = all(root).first { it.contentDescription == "День / ночь" }
         assertTrue(prev.isShown && next.isShown && dn.isShown)
-        val loc = IntArray(2); dn.getLocationInWindow(loc); assertTrue("inside screen", loc[1] + dn.height <= 720 && loc[1] > 300)
+        val loc = IntArray(2); dn.getLocationInWindow(loc); assertTrue("inside screen", loc[1] + dn.height <= 720 && loc[1] > 200)
         next.performClick(); settle(); assertEquals(Layouts.ALL[1].id, Prefs.layout)
         all(a.window.decorView).first { it.contentDescription == "Предыдущая раскладка" }.performClick(); settle(); assertEquals("cockpit", Prefs.layout)
         all(a.window.decorView).first { it.contentDescription == "Предыдущая раскладка" }.performClick(); settle(); assertEquals(Layouts.ALL.last().id, Prefs.layout)

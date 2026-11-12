@@ -95,11 +95,10 @@ object AppRepo {
         }
     }
 
-    fun startSafe(ctx: Context, intent: Intent, fallback: Intent? = null) {
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        try { ctx.startActivity(intent) } catch (e: Exception) {
-            if (fallback != null) try { ctx.startActivity(fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return } catch (_: Exception) {}
-            Toast.makeText(ctx, "Экран недоступен на этом устройстве", Toast.LENGTH_SHORT).show()
+    fun startSafe(ctx: Context, intent: Intent, fallback: Intent? = null, vararg more: Intent) {
+        for (i in listOfNotNull(intent, fallback) + more) {
+            try { ctx.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return } catch (_: Exception) {}
         }
+        Toast.makeText(ctx, "Экран недоступен на этом устройстве", Toast.LENGTH_SHORT).show()
     }
 }

@@ -245,6 +245,8 @@ class BarView(ctx: Context, private val fill: Int, private val rest: Int) : View
     var fraction = 0f
         set(v) { val n = v.coerceIn(0f, 1f); if (n != field) { field = n; invalidate() } }
     private val pf = fillPaint(fill); private val pr = fillPaint(rest)
+    /** v1.7.1: recolour (music screen follows the cover). */
+    fun setFill(c: Int) { if (pf.color != c) { pf.color = c; invalidate() } }
     override fun toLight() { pf.color = LightPass.fg(fill); pr.color = LightPass.fg(rest); invalidate() }
     private val rr = RectF()
     override fun onDraw(c: Canvas) {

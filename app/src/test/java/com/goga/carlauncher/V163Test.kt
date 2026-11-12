@@ -80,8 +80,10 @@ class V163Test {
             // the UI stays dark in both (top-left corner = background), only the road brightens
             fun lum(b: android.graphics.Bitmap, x: Int, y: Int): Int { val c = b.getPixel(x, y); return ((c shr 16 and 255) + (c shr 8 and 255) + (c and 255)) / 3 }
             assertTrue("$id: UI corner stays dark on a day road", lum(day, day.width - 5, day.height - 5) < 90)
+            // v1.7.1: sample the road block itself (the car is bigger now and covers more of the screen centre)
+            val rv = all(r1).first { it is RoadView && it.isShown }; val p0 = IntArray(2); rv.getLocationInWindow(p0)
             var dsum = 0L; var nsum = 0L
-            for (y in day.height / 4 until day.height * 3 / 4 step 4) for (x in day.width / 4 until day.width * 3 / 4 step 4) { dsum += lum(day, x, y); nsum += lum(night, x, y) }
+            for (y in p0[1] + rv.height / 8 until p0[1] + rv.height * 7 / 8 step 4) for (x in p0[0] + rv.width / 10 until p0[0] + rv.width * 9 / 10 step 4) { dsum += lum(day, x, y); nsum += lum(night, x, y) }
             assertTrue("$id: day road is brighter than night road ($dsum vs $nsum)", dsum > nsum * 1.05)
         }
     }

@@ -137,7 +137,7 @@ class V170Test {
     }
 
     @Test fun railItemsAndDashcamNames() {
-        assertEquals(listOf("home", "apps", "media", "dvr", "settings", "layout", "phone", "wifi"), Rail.items())
+        Prefs.railItems = "home,apps,media,dvr,settings,layout,phone,wifi"
         Rail.add("camera"); Rail.add("app:ru.yandex.music"); Rail.move("camera", -1); Rail.remove("media")
         assertEquals(listOf("home", "apps", "dvr", "settings", "layout", "phone", "camera", "wifi", "app:ru.yandex.music"), Rail.items())
         assertEquals(listOf("home", "wifi"), Rail.parse("home, nonsense,wifi,home"))

@@ -12,8 +12,8 @@ android {
         applicationId = "com.goga.carlauncher"
         minSdk = 26
         targetSdk = 29
-        versionCode = 11
-        versionName = "1.7.0"
+        versionCode = 12
+        versionName = "1.7.1"
     }
     // Signing secrets are NOT in the repo: keystore/ (jks + signing.properties) stays only on the build machine,
     // or pass CL_STORE_FILE / CL_STORE_PASSWORD / CL_KEY_ALIAS / CL_KEY_PASSWORD as environment variables.

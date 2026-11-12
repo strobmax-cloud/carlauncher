@@ -30,9 +30,11 @@ object Layouts {
         L("radial", "Радиал", "Круглая обложка в дуге скорости, кнопки по бокам, кожа, строка статуса", true),
         L("showcase", "Витрина", "Ваш SX4 сзади на дороге, часы и скорость, плеер и навигатор справа", true)
     )
+    /** v1.7.1 default: «Главная / Музыка / Камера» screens, swiped horizontally (not part of the classic list). */
+    val SCREENS = L("screens", "Экраны", "Главная · Музыка · Камера — листаются пальцем, переключатель сверху")
     /** Layouts removed in later versions → what a saved preference becomes. */
     val RETIRED = mapOf("nordic" to "cockpit")
-    fun byId(id: String) = ALL.firstOrNull { it.id == (RETIRED[id] ?: id) } ?: ALL[0]
+    fun byId(id: String) = if (id == SCREENS.id) SCREENS else ALL.firstOrNull { it.id == (RETIRED[id] ?: id) } ?: ALL[0]
 }
 
 /** Miniature of layout × theme: theme wallpaper + a schematic of the layout in theme colours. */

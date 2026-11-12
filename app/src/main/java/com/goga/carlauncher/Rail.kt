@@ -3,7 +3,6 @@ package com.goga.carlauncher
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.media.AudioManager
 import android.os.Build
 import android.provider.Settings
 import android.view.KeyEvent
@@ -16,7 +15,9 @@ import android.view.KeyEvent
 object Rail {
     class Item(val id: String, val label: String, val icon: Int, val desc: String)
     val BUILTIN = listOf(
-        Item("home", "Главная", R.drawable.ic_home, "Главный экран Car Launcher"),
+        Item("home", "Главная", R.drawable.ic_home, "Главный экран Car Launcher (кнопка «Домой»)"),
+        Item("back", "Назад", R.drawable.ic_back, "Системная «Назад» (служба «Кнопки навигации»)"),
+        Item("recents", "Недавние", R.drawable.ic_recents, "Открытые приложения (служба «Кнопки навигации»)"),
         Item("apps", "Прилож.", R.drawable.ic_apps, "Все приложения"),
         Item("media", "Флешка", R.drawable.ic_usb, "Видео и музыка с флешки"),
         Item("dvr", "Записи", R.drawable.ic_videocam, "Записи регистратора"),
@@ -31,9 +32,11 @@ object Rail {
         Item("dvrapp", "DVR", R.drawable.ic_videocam, "Приложение регистратора"),
         Item("youtube", "YouTube", R.drawable.ic_youtube, "YouTube / SmartTube"),
         Item("playpause", "Пауза", R.drawable.ic_play, "Пауза / играть"),
+        Item("clean", "Память", R.drawable.ic_storage, "Очистка памяти: что занимает место"),
+        Item("voltest", "Тест\nгромк.", R.drawable.ic_vol_up, "Тест способов громкости"),
         Item("stock", "Штатный", R.drawable.ic_home, "Вернуть штатный экран (выбор главного экрана)")
     )
-    const val DEFAULT = "home,apps,media,dvr,settings,layout,phone,wifi"
+    const val DEFAULT = "home,back,recents,apps,media,dvr,settings,layout,phone,wifi"
     const val APP = "app:"
 
     fun parse(s: String): List<String> = s.split(',').map { it.trim() }.filter { it.isNotEmpty() }
@@ -55,7 +58,11 @@ object Rail {
     /** Runs an item. Screen items go through [MainActivity.show]. */
     fun run(a: MainActivity, id: String) {
         when (id) {
-            "home" -> a.show(MainActivity.HOME)
+            "home" -> { if (a.current == MainActivity.HOME) (a.homeScreen())?.goPage(0); a.show(MainActivity.HOME) }
+            "back" -> NavKeys.back(a)
+            "recents" -> NavKeys.recents(a)
+            "clean" -> a.show(MainActivity.CLEAN)
+            "voltest" -> a.show(MainActivity.VOLTEST)
             "apps" -> a.show(MainActivity.APPS)
             "media" -> a.show(MainActivity.MEDIA)
             "dvr" -> a.show(MainActivity.DVR)
@@ -79,41 +86,6 @@ object Rail {
     fun wifi(a: Activity) {
         if (Build.VERSION.SDK_INT >= 29) try { a.startActivity(Intent(Settings.Panel.ACTION_WIFI).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return } catch (_: Exception) {}
         AppRepo.startSafe(a, Intent(Settings.ACTION_WIFI_SETTINGS), Intent(Settings.ACTION_SETTINGS))
-    }
-}
-
-/**
- * v1.7.0 volume buttons. "auto": Android music volume (adjustStreamVolume STREAM_MUSIC + system volume bar; no
- * permission needed); if the level did not change (fixed volume / routed by the head unit) → the active stream
- * (adjustSuggestedStreamVolume) → a volume key event. The MCU / amplifier is never addressed directly.
- */
-object Volume {
-    var lastMethod = ""
-        private set
-
-    fun step(c: Context, up: Boolean, method: String = Prefs.volMethod): String {
-        val am = c.getSystemService(AudioManager::class.java) ?: return "none"
-        val dir = if (up) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER
-        val flags = AudioManager.FLAG_SHOW_UI
-        fun stream() = try { am.adjustStreamVolume(AudioManager.STREAM_MUSIC, dir, flags); true } catch (_: Throwable) { false }
-        fun suggested() = try { am.adjustSuggestedStreamVolume(dir, AudioManager.USE_DEFAULT_STREAM_TYPE, flags); true } catch (_: Throwable) { false }
-        fun key() { MediaHub.key(c, if (up) KeyEvent.KEYCODE_VOLUME_UP else KeyEvent.KEYCODE_VOLUME_DOWN) }
-        lastMethod = when (method) {
-            "stream" -> { stream(); "stream" }
-            "suggested" -> { suggested(); "suggested" }
-            "key" -> { key(); "key" }
-            else -> {
-                val fixed = try { am.isVolumeFixed } catch (_: Throwable) { false }
-                val max = try { am.getStreamMaxVolume(AudioManager.STREAM_MUSIC) } catch (_: Throwable) { 0 }
-                val before = try { am.getStreamVolume(AudioManager.STREAM_MUSIC) } catch (_: Throwable) { -1 }
-                if (!fixed && stream()) {
-                    val after = try { am.getStreamVolume(AudioManager.STREAM_MUSIC) } catch (_: Throwable) { -1 }
-                    val atLimit = (up && before >= max) || (!up && before <= 0)
-                    if (after != before || atLimit || before < 0) "stream" else { suggested(); "suggested" }
-                } else { key(); "key" }
-            }
-        }
-        return lastMethod
     }
 }
 

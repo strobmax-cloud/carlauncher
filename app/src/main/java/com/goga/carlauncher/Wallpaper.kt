@@ -31,6 +31,13 @@ object Wallpaper {
     private var baseKey: String? = null
     private var cover: Bitmap? = null
     private var coverKey: Any? = null
+    /** v1.7.1 «Чёткая обложка»: the album art itself at content size (lightly darkened), made only in that mode. */
+    private var coverSharp: Bitmap? = null
+    private var coverArt: Bitmap? = null
+    /** v1.7.1 colour picked from the current cover (null = no cover / grey cover). */
+    @Volatile var coverColor: Int? = null; private set
+    /** Called on the main thread when [coverColor] changed. */
+    var onCoverColor: ((Int?) -> Unit)? = null
     private val listeners = ArrayList<() -> Unit>()
     var width = 0; private set
     var height = 0; private set
@@ -39,7 +46,7 @@ object Wallpaper {
     fun removeListener(l: () -> Unit) { listeners.remove(l) }
     private fun publish() {
         val c = if (Prefs.coverWallpaper) cover else null
-        full = c ?: baseFull
+        full = (if (Prefs.bgMode == "sharp" && c != null) coverSharp else null) ?: c ?: baseFull
         blur = c ?: baseBlur
         AppRepo.main.post { listeners.toList().forEach { it() } }
     }
@@ -118,24 +125,48 @@ object Wallpaper {
     /** "Cover as wallpaper": heavy blur + darken of the album art, computed once per track. */
     fun setCover(art: Bitmap?) {
         if (art === coverKey) return
-        coverKey = art
-        if (art == null) { cover = null; publish(); return }
+        coverKey = art; coverArt = art
+        if (art == null) { cover = null; coverSharp = null; setColor(null); publish(); return }
         val w = if (width > 0) width else 1168; val h = if (height > 0) height else 720
         AppRepo.exec.execute {
             val c = try {
                 val crop = centerCrop(art, w / 4, h / 4, Bitmap.Config.ARGB_8888)
                 makeBlur(crop, 2, 5, 3).also { Canvas(it).drawColor(0x8C000000.toInt()) }
             } catch (e: Throwable) { null }
-            if (coverKey === art) { cover = c; publish() }
+            val sharp = if (Prefs.bgMode == "sharp") sharpOf(art, w, h) else null
+            val col = try { CoverColor.pick(art) } catch (e: Throwable) { null }
+            if (coverKey === art) { cover = c; coverSharp = sharp; publish(); AppRepo.main.post { setColor(col) } }
         }
     }
 
-    fun refreshCoverMode() = publish()
+    private fun setColor(c: Int?) {
+        if (c == coverColor) return
+        coverColor = c
+        onCoverColor?.invoke(c)
+    }
+
+    /** The cover filling the content area, sharp (RGB_565 ≈ 1.7 MB), darkened a bit so the text stays readable. */
+    private fun sharpOf(art: Bitmap, w: Int, h: Int): Bitmap? = try {
+        centerCrop(art, w, h, Bitmap.Config.RGB_565).let { if (it === art) it.copy(Bitmap.Config.RGB_565, true) else it }
+            .also { Canvas(it).drawColor(0x47000000) }
+    } catch (e: Throwable) { null }
+
+    /** Background mode changed in Settings / quick panel. */
+    fun refreshCoverMode() {
+        val art = coverArt
+        if (Prefs.bgMode == "sharp" && coverSharp == null && art != null) {
+            val w = if (width > 0) width else 1168; val h = if (height > 0) height else 720
+            AppRepo.exec.execute { val s = sharpOf(art, w, h); if (coverArt === art) { coverSharp = s; publish() } }
+            return
+        }
+        if (Prefs.bgMode != "sharp") coverSharp = null
+        publish()
+    }
 
     /** onTrimMemory: forget all bitmaps (GC frees them once views drop their references). */
     fun release() {
         synchronized(this) { baseFull = null; baseBlur = null; baseKey = null }
-        cover = null; coverKey = null
+        cover = null; coverKey = null; coverSharp = null; coverArt = null
         full = null; blur = null
         AppRepo.main.post { listeners.toList().forEach { it() } }
     }

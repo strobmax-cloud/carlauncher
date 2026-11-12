@@ -153,10 +153,14 @@ class MediaTest {
         assertFalse(Prefs.tileVisible(8))
         val act = start()
         act.show(MainActivity.MEDIA); settle(4); relayout(act.window.decorView); settle(2)
+        save(act, "media-root")
         var t = texts(act.window.decorView)
         assertTrue(t.toString(), t.contains("ПРОДОЛЖИТЬ ПРОСМОТР"))
         assertTrue(t.contains("Интерстеллар.2014.1080p"))
-        assertTrue(t.contains("Фильмы")); assertTrue(t.contains("Дорога на дачу"))
+        assertTrue(t.toString(), t.contains("Фильмы"))
+        // v1.7.1: the list may need a scroll to the last row (floating volume margins) → check the adapter
+        val l0 = all(act.window.decorView).filterIsInstance<ListView>().first()
+        assertTrue((0 until l0.adapter.count).any { ((l0.adapter.getItem(it) as? Media.Entry)?.file?.name ?: "").startsWith("Дорога на дачу") })
         save(act, "media-root")
         val list = all(act.window.decorView).filterIsInstance<ListView>().first()
         val idx = (0 until list.adapter.count).first { (list.adapter.getItem(it) as? Media.Entry)?.file?.name == "Фильмы" }

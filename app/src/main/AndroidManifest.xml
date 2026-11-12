@@ -19,7 +19,13 @@
     <!-- v1.7.0: only for the experimental live camera tile (off by default, asked when switched on) -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- v1.7.1 «Очистка памяти»: app sizes (StorageStatsManager); the user grants «Доступ к истории использования» himself -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
+    <queries>
+        <package android:name="com.syu.ms" />
+        <intent><action android:name="com.syu.ms.toolkit" /></intent>
+    </queries>
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
@@ -61,6 +67,20 @@
         <receiver android:name=".InstallReceiver" android:exported="false" />
         <service
             android:name=".MiniPlayer"
+            android:exported="false" />
+        <!-- v1.7.1 optional «Назад / Недавние» (performGlobalAction only; no key filtering, no window content) -->
+        <service
+            android:name=".NavAccess"
+            android:exported="true"
+            android:label="Car Launcher — кнопки навигации"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/nav_access" />
+        </service>
+        <service
+            android:name=".FloatNav"
             android:exported="false" />
         <provider
             android:name=".FilesProvider"

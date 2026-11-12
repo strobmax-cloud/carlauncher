@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nav_access_desc">Car Launcher: только кнопки «Назад» и «Недавние» в меню лаунчера и на плавающей кнопке. Служба не читает экран и не перехватывает кнопки руля и магнитолы.</string>
+</resources>
