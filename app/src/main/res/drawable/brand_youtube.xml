@@ -1,0 +1,4 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="48dp" android:height="48dp" android:viewportWidth="48" android:viewportHeight="48">
+<path android:pathData="M12,0H36A12,12 0,0 1,48,12V36A12,12 0,0 1,36,48H12A12,12 0,0 1,0,36V12A12,12 0,0 1,12,0Z"><aapt:attr name="android:fillColor"><gradient android:type="linear" android:startX="0" android:startY="0" android:endX="0" android:endY="48" android:startColor="#FF4A3D" android:endColor="#D70015"/></aapt:attr></path><path android:fillColor="#18FFFFFF" android:pathData="M12,0H36A12,12 0,0 1,48,12V20C40,23 8,23 0,20V12A12,12 0,0 1,12,0Z"/><path android:fillColor="#FFFFFFFF" android:pathData="M15,13.5H33A6,6 0,0 1,39,19.5V28.5A6,6 0,0 1,33,34.5H15A6,6 0,0 1,9,28.5V19.5A6,6 0,0 1,15,13.5Z"/><path android:fillColor="#FFE5141C" android:pathData="M21,18.6L31,24L21,29.4Z"/>
+</vector>

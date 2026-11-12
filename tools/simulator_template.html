@@ -1,0 +1,688 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Car Launcher 1.3 — симулятор</title>
+<style>
+@font-face{font-family:RobotoV;src:url(/*FONT_ROBOTO*/) format("woff");font-weight:100 900}
+@font-face{font-family:RobotoC;src:url(/*FONT_COND*/) format("woff");font-weight:100 900}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#111114;color:#fff;font-family:RobotoV,Roboto,"Segoe UI",system-ui,sans-serif;overflow:hidden}
+#chrome{height:96px;display:flex;align-items:center;gap:18px;padding:0 20px;background:#1a1a1e;border-bottom:1px solid #2a2a2e;font-size:14px;white-space:nowrap;overflow-x:auto}
+#chrome h1{font-size:16px;font-weight:600;margin-right:6px}
+#chrome .grp{display:flex;align-items:center;gap:8px}
+#chrome .lbl{color:#8E8E93;font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.tt{width:88px;height:50px;border-radius:9px;border:3px solid transparent;background-size:cover;background-position:center;cursor:pointer;position:relative;display:flex;align-items:flex-end;justify-content:center}
+.tt span{font-size:11px;font-weight:600;background:rgba(0,0,0,.55);padding:1px 6px;border-radius:6px;margin-bottom:3px}
+.tt.sel{border-color:var(--c)}
+#chrome select,#chrome button,#chrome label.btn{background:#2c2c2e;color:#fff;border:0;border-radius:10px;padding:9px 12px;font:inherit;cursor:pointer}
+#chrome label.chk{display:flex;align-items:center;gap:6px;cursor:pointer}
+#viewport{position:absolute;left:0;right:0;bottom:0;top:96px;display:flex;align-items:center;justify-content:center}
+body.bare #chrome{display:none} body.bare #viewport{top:0}
+#stage{width:1280px;height:720px;position:relative;display:flex;flex:none;overflow:hidden;background:#000;transform-origin:center center;border-radius:6px}
+body:not(.bare) #stage{box-shadow:0 0 0 10px #050506,0 0 0 11px #2a2a2e}
+/* rail */
+.rail{width:112px;flex:none;background:#0A0A0C;display:flex;flex-direction:column;align-items:center;padding:16px 0;z-index:2}
+.ri{display:flex;flex-direction:column;align-items:center;margin-bottom:14px;cursor:pointer}
+.rb{width:80px;height:64px;border-radius:18px;display:flex;align-items:center;justify-content:center}
+.ri.sel .rb{background:#232326}
+.rl{font-size:15px;font-weight:500;margin-top:6px;color:#636366}.ri.sel .rl{color:#fff}
+.vb{width:80px;height:80px;border-radius:50%;background:#1C1C1E;display:flex;align-items:center;justify-content:center;margin-top:14px;cursor:pointer}
+.vb:active{background:#3A3A3C}
+/* content area */
+.area{position:relative;width:1168px;height:720px;flex:none}
+.wall,.dim{position:absolute;inset:0;width:100%;height:100%}
+.wall{object-fit:cover}
+.wall.cover{filter:blur(36px) brightness(.45) saturate(1.2);transform:scale(1.25)}
+.scr{position:absolute;inset:0;display:none}.scr.on{display:block}
+.card{background:var(--tint);border-radius:var(--r);box-shadow:inset 0 0 0 1px var(--border)}
+.glass .card.blur{-webkit-backdrop-filter:blur(26px) saturate(1.15);backdrop-filter:blur(26px) saturate(1.15)}
+.press{cursor:pointer}.press:active{filter:brightness(1.25)}
+/* home */
+.home{display:flex;padding:20px;gap:16px;height:100%}
+.lcol{width:320px;flex:none;display:flex;flex-direction:column;gap:16px}
+.clock{flex:1;padding:26px 24px 24px 28px;display:flex;flex-direction:column;min-height:0}
+.time{line-height:1;letter-spacing:-.02em;white-space:nowrap}
+.date{font-size:24px;font-weight:500;margin-top:8px}
+.week{display:flex;margin-top:22px}.week>div{flex:1;display:flex;flex-direction:column;align-items:center}
+.week .wn{font-size:13px;font-weight:500;letter-spacing:.04em}.week .wd{width:36px;height:36px;margin-top:6px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:500}
+.daybar{height:4px;border-radius:2px;display:flex;overflow:hidden;margin-top:auto}
+.dayt{font-size:16px;font-weight:500;letter-spacing:.04em;margin-top:10px}
+.speed{height:200px;flex:none;padding:18px 20px 18px 28px;display:flex;flex-direction:column;justify-content:center;cursor:pointer}
+.sv{font-size:88px;font-weight:700;line-height:1;letter-spacing:-.02em}.su{font-size:24px;font-weight:500;margin-left:12px;padding-bottom:12px}
+.gps{display:flex;align-items:center;gap:8px;font-size:18px;margin-top:8px}
+.rcol{width:792px;flex:none;display:flex;flex-direction:column;gap:16px}
+.media{flex:1;display:flex;overflow:hidden;min-height:0}
+.art{height:100%;aspect-ratio:1/1;flex:none;object-fit:cover;display:block}
+.artph{height:100%;aspect-ratio:1/1;flex:none;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center}
+.mcol{flex:1;min-width:0;padding:24px 24px 22px 26px;display:flex;flex-direction:column;cursor:pointer}
+.src{font-size:15px;font-weight:500;letter-spacing:.1em;color:rgba(255,255,255,.6)}
+.ttl{font-size:32px;font-weight:700;margin-top:12px;line-height:1.08;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.art2{font-size:21px;color:rgba(255,255,255,.7);margin-top:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pb{height:5px;border-radius:3px;background:rgba(255,255,255,.2);overflow:hidden}.pf{height:100%;background:#fff;border-radius:3px}
+.tms{display:flex;justify-content:space-between;font-size:15px;color:rgba(255,255,255,.6);margin:8px 0 14px}
+.ctr{display:flex;align-items:center;justify-content:center;gap:18px}
+.cb{width:76px;height:76px;border-radius:50%;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.cb:active{background:rgba(255,255,255,.28)}
+.pp{width:92px;height:92px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.tiles{height:240px;flex:none;display:flex;flex-direction:column;gap:16px}
+.trow{flex:1;display:flex;gap:16px}
+.tile{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0}
+.tile .tl{font-size:17px;font-weight:500;margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;padding:0 6px}
+.tile .ni{font-size:13px;color:rgba(255,255,255,.55)}
+.tile.blk{align-items:flex-start;justify-content:flex-start;padding:14px 14px 12px 16px;border-radius:var(--r)}
+.tile.blk .tl{margin-top:auto;font-size:18px;font-weight:700;padding:0}
+.tile.blk.wide .tl{font-size:24px}
+.dim40 svg,.dim40 .ri2{opacity:.4}
+/* apps */
+.pad{padding:20px 20px 0 20px;height:100%;display:flex;flex-direction:column}
+.search{height:72px;display:flex;align-items:center;padding:0 24px;border-radius:36px !important;flex:none}
+.search input{flex:1;background:none;border:0;outline:0;color:#fff;font:inherit;font-size:26px;margin-left:14px}
+.search input::placeholder{color:#636366}
+.agrid{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;padding:20px 0;overflow:auto}
+.acell{height:164px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.acell .al{font-size:19px;font-weight:500;margin-top:10px;text-align:center;padding:0 8px;line-height:1.15}
+/* dvr */
+.dh{display:flex;align-items:center}.dh h2{font-size:34px;font-weight:700}.dst{font-size:19px;color:#8E8E93;margin-top:6px}
+.chips{display:flex;gap:12px;margin-top:16px;flex:none}
+.chip{height:64px;padding:0 28px;border-radius:36px;display:flex;align-items:center;font-size:22px;font-weight:500;background:#1C1C1E;cursor:pointer}
+.chip.sel{background:var(--accent);color:#fff}
+.dlist{overflow:auto;padding:8px 0 20px}
+.dhd{font-size:22px;font-weight:700;padding:22px 0 10px 8px}
+.drow{height:132px;display:flex;align-items:center;padding:12px 24px 12px 12px;margin-bottom:0;cursor:pointer}
+.dthumb{width:192px;height:108px;border-radius:14px;flex:none;background-size:cover}
+.dt{font-size:30px;font-weight:700}.dn{font-size:18px;color:#8E8E93;margin-top:8px}.dsz{font-size:20px;color:#8E8E93;font-weight:500;margin-left:auto}
+/* settings */
+.sset{overflow:auto;height:100%;padding:20px 20px 28px}
+.sh{font-size:17px;font-weight:700;letter-spacing:.08em;color:rgba(255,255,255,.75);margin:28px 0 12px 8px;text-transform:uppercase}.sh:first-child{margin-top:4px}
+.scard{padding:8px}
+.srow{min-height:96px;display:flex;align-items:center;padding:12px 16px 12px 20px;border-radius:20px}
+.srow.clk{cursor:pointer}.srow.clk:active{background:rgba(255,255,255,.12)}
+.sic{width:60px;height:60px;border-radius:50%;background:#2C2C2E;display:flex;align-items:center;justify-content:center;margin-right:20px;flex:none}
+.stt{font-size:25px;font-weight:500}.ssb{font-size:18px;color:#8E8E93;margin-top:6px}
+.sw{width:88px;height:52px;border-radius:26px;padding:4px;display:flex;cursor:pointer;flex:none;margin-left:16px}
+.sw i{width:44px;height:44px;border-radius:50%;background:#fff;display:block}
+.strip{display:flex;gap:12px;padding:14px 12px 10px;overflow-x:auto}
+.th{width:200px;flex:none;text-align:center;cursor:pointer}
+.thf{height:124px;border-radius:18px;padding:6px;border:4px solid transparent}
+.thf canvas{width:100%;height:100%;border-radius:12px;display:block}
+.thn{font-size:19px;font-weight:500;margin-top:8px;color:rgba(255,255,255,.7)}.th.sel .thn{color:#fff}
+.wp{width:168px;flex:none;text-align:center;cursor:pointer}
+.wpf{height:100px;border-radius:16px;padding:5px;background:rgba(255,255,255,.08);border:4px solid transparent}
+.wpf div{width:100%;height:100%;border-radius:12px;background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center}
+.wpn{font-size:17px;font-weight:500;margin-top:8px;color:rgba(255,255,255,.7)}.wp.sel .wpn{color:#fff}
+.lt{width:84px;flex:none;cursor:pointer;text-align:center}.lt canvas{width:84px;height:48px;border-radius:8px;border:3px solid transparent;display:block}
+.lt span{font-size:11px;font-weight:600;color:#aaa}.lt.sel span{color:#fff}
+.abs{position:absolute}.col{display:flex;flex-direction:column}.row{display:flex;align-items:center}
+.ico{display:flex;flex-direction:column;align-items:center;cursor:pointer}.ico .il{font-weight:500;margin-top:8px;white-space:nowrap;text-align:center}
+.rnd{border-radius:50%;overflow:hidden;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center}
+.rnd svg{width:100%;height:100%;transform:scale(1.12)}
+.cap{font-weight:700;letter-spacing:.08em}
+.chf{clip-path:polygon(var(--c) 0,100% 0,100% calc(100% - var(--c)),calc(100% - var(--c)) 100%,0 100%,0 var(--c))}
+.ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.th{width:220px}.thf{height:136px}.thd{font-size:14px;color:#8E8E93;margin-top:4px;line-height:1.2}
+.toast{position:absolute;left:50%;bottom:40px;transform:translateX(-50%);background:rgba(40,40,44,.95);padding:14px 26px;border-radius:30px;font-size:20px;display:none;z-index:9}
+</style></head>
+<body>
+<div id="chrome">
+  <h1>Car Launcher 1.4</h1>
+  <div class="grp"><span class="lbl">Раскладка</span><div id="lthumbs" class="grp"></div></div>
+  <div class="grp"><span class="lbl">Тема</span><div id="tthumbs" class="grp"></div></div>
+  <div class="grp"><span class="lbl">Обои</span><select id="wsel"></select>
+    <label class="btn">Загрузить фон<input id="file" type="file" accept="image/*" hidden></label></div>
+  <div class="grp"><label class="chk"><input type="checkbox" id="cov">Обложка как фон</label>
+    <label class="chk"><input type="checkbox" id="mus">Музыка играет</label></div>
+  <span class="lbl" style="text-transform:none;letter-spacing:0">Работает офлайн · картинки никуда не отправляются</span>
+</div>
+<div id="viewport"><div id="stage">
+  <div class="rail" id="rail"></div>
+  <div class="area" id="area">
+    <img class="wall" id="wall" alt=""><div class="dim" id="dim"></div>
+    <div class="scr" id="s0"></div><div class="scr" id="s1"></div><div class="scr" id="s2"></div><div class="scr" id="s3"></div>
+    <div class="toast" id="toast"></div>
+  </div>
+</div></div>
+<script>
+/*DATA*/
+const $=s=>document.querySelector(s);
+const P=new URLSearchParams(location.hash.slice(1));
+const S={layout:P.get('layout')||localStorage.cl_layout||'cockpit',theme:P.get('theme')||localStorage.cl_theme||'glass', wall:P.get('wp')||'theme', custom:null, cover:P.get('cover')!=='0',
+  playing:(P.get('state')||'playing')!=='idle', screen:+(P.get('screen')||0), track:0, pos:84, speed:62, h24:true, showSpeed:true,
+  tiles:[1,1,1,1,1,1,1,1], q:'', day:null, nordicLight:P.get('nordic')!=='dark'};
+if(P.get('chrome')==='0') document.body.classList.add('bare');
+const TH=()=>DATA.themes.find(t=>t.id===S.theme)||DATA.themes[0];
+// ---- icons ----
+function lineIcon(n,size,color){const g=DATA.line[n];if(!g)return'';const a=g.stroke?`fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"`:`fill="${color}"`;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24"><path d="${g.d}" ${a}/></svg>`}
+let gid=0;
+function tileIcon(n,size,op=1){const i=DATA.icons.icons[n];const id='g'+(gid++);
+  return `<svg width="${size}" height="${size}" viewBox="0 0 48 48" style="opacity:${op}"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${i.c1}"/><stop offset="1" stop-color="${i.c2}"/></linearGradient></defs>
+  <path d="${DATA.icons.sq}" fill="url(#${id})"/><path d="${DATA.icons.gloss}" fill="rgba(255,255,255,.08)"/>
+  <g transform="translate(10.8 10.8) scale(1.1)"><path d="${i.glyph}" fill="#fff"/></g>${i.rec?'<circle cx="33" cy="15.5" r="2.6" fill="#FF3B30"/>':''}</svg>`}
+// Look-alike "real app icons" (mock-up only; on the device the real icons come from Android)
+const SQ=DATA.icons.sq;
+const REAL={
+ ynavi:s=>`<svg width="${s}" height="${s}" viewBox="0 0 48 48"><path d="${SQ}" fill="#fff"/><path d="M24 9 L36 37 L24 30 L12 37Z" fill="#FF3B30"/><path d="M24 9 L24 30 L12 37Z" fill="#FFCC00"/></svg>`,
+ ymusic:s=>`<svg width="${s}" height="${s}" viewBox="0 0 48 48"><path d="${SQ}" fill="#121212"/><circle cx="24" cy="24" r="13" fill="#FFCC00"/><path d="M21 18v10.5a3.2 3.2 0 1 0 2 3V21h6v-3z" fill="#121212"/></svg>`,
+ youtube:s=>`<svg width="${s}" height="${s}" viewBox="0 0 48 48"><path d="${SQ}" fill="#fff"/><rect x="8" y="14" width="32" height="21" rx="6" fill="#FF0000"/><path d="M21 19.5v10l8.5-5z" fill="#fff"/></svg>`,
+ tc:s=>`<svg width="${s}" height="${s}" viewBox="0 0 48 48"><path d="${SQ}" fill="#FFD60A"/><rect x="11" y="11" width="26" height="26" rx="3" fill="#0A3D91"/><rect x="16" y="11" width="16" height="9" fill="#cfd8e3"/><rect x="15" y="25" width="18" height="12" rx="1" fill="#fff"/></svg>`,
+ gis:s=>`<svg width="${s}" height="${s}" viewBox="0 0 48 48"><path d="${SQ}" fill="#19AA1E"/><text x="24" y="33" font-size="24" font-weight="800" text-anchor="middle" fill="#fff" font-family="RobotoV">2</text></svg>`,
+ newpipe:s=>`<svg width="${s}" height="${s}" viewBox="0 0 48 48"><path d="${SQ}" fill="#CD201F"/><circle cx="24" cy="24" r="11" fill="#fff"/><path d="M21 18.5v11l9-5.5z" fill="#CD201F"/></svg>`,
+ scanner:s=>`<svg width="${s}" height="${s}" viewBox="0 0 48 48"><path d="${SQ}" fill="#0A84FF"/><path d="M12 31a12 12 0 1 1 24 0" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><path d="M24 31l6-8" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>`,
+ settings:s=>`<svg width="${s}" height="${s}" viewBox="0 0 48 48"><path d="${SQ}" fill="#8E8E93"/><circle cx="24" cy="24" r="10" fill="none" stroke="#fff" stroke-width="4" stroke-dasharray="4 3"/><circle cx="24" cy="24" r="4" fill="#fff"/></svg>`,
+ chrome:s=>`<svg width="${s}" height="${s}" viewBox="0 0 48 48"><path d="${SQ}" fill="#fff"/><circle cx="24" cy="24" r="12" fill="#34A853"/><path d="M24 12a12 12 0 0 1 10.4 6H24z" fill="#EA4335"/><circle cx="24" cy="24" r="5" fill="#4285F4" stroke="#fff" stroke-width="2"/></svg>`,
+ gen:(c,l)=>s=>`<svg width="${s}" height="${s}" viewBox="0 0 48 48"><path d="${SQ}" fill="${c}"/><text x="24" y="31" font-size="20" font-weight="700" text-anchor="middle" fill="#fff" font-family="RobotoV">${l}</text></svg>`,
+};
+// Tile slots exactly as in Tiles.kt; "real" = what this sample head unit has installed
+const TILES=[
+ {t:'Навигатор',art:'tile_nav',blk:'#0A6CFF',real:'ynavi',label:'Навигатор'},
+ {t:'Радио',art:'tile_radio',blk:'#FF7A00'},
+ {t:'Телефон',art:'tile_phone',blk:'#1DB954'},
+ {t:'Камера',art:'tile_camera',blk:'#2C2C2E'},
+ {t:'Я.Музыка',art:'tile_music',blk:'#FF2D55',real:'ymusic'},
+ {t:'YouTube',art:'tile_video',blk:'#E0162B',real:'youtube'},
+ {t:'Apple Music',art:'tile_headphones',blk:'#B02BE8',missing:true},
+ {t:'Файлы',art:'tile_files',blk:'#0A84FF',real:'tc'}];
+const TRACKS=[{src:'ЯНДЕКС МУЗЫКА',t:'Ночная трасса',a:'Демо-исполнитель · Альбом 2026',d:235},
+ {src:'ЯНДЕКС МУЗЫКА',t:'Северный ветер',a:'Пример группы · Синглы',d:198},{src:'ЯНДЕКС МУЗЫКА',t:'Неон над Алматы',a:'Тестовый артист · Город',d:262}];
+const APPS=[['2ГИС','gis'],['Car Scanner','scanner'],['Chrome','chrome'],['DVR','A:#3A3A3C:D'],['NewPipe','newpipe'],['Total Commander','tc'],
+ ['YouTube','youtube'],['АнтиРадар М','A:#FF9F0A:А'],['Bluetooth','A:#1DB954:B'],['Галерея','A:#AF52DE:Г'],['Музыка','A:#FF2D55:М'],['Настройки','settings'],
+ ['Радио','A:#FF7A00:Р'],['Яндекс Музыка','ymusic'],['Яндекс Навигатор','ynavi'],['Telegram','A:#2AABEE:T'],['Погода','A:#5AC8FA:П'],['Калькулятор','A:#636366:±']];
+function appIcon(k,s){if(k.startsWith('A:')){const[,c,l]=k.split(':');return REAL.gen(c,l)(s)}return REAL[k](s)}
+// ---- helpers ----
+const fmt=s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',1800)}
+function wallSrc(){const t=TH();const id=S.wall==='theme'?t.wall:S.wall;return id==='custom'?S.custom:DATA.walls[id]}
+function applyTheme(){
+  const t=TH(),st=$('#stage');
+  st.style.setProperty('--accent',t.accent);st.style.setProperty('--tint',t.tint);st.style.setProperty('--border',t.border);st.style.setProperty('--r',t.radius+'px');
+  st.classList.toggle('glass',t.glass);
+  $('#dim').style.background=t.dim;
+  const cov=S.cover&&S.playing;const w=$('#wall');w.src=cov?DATA.covers[S.track]:wallSrc();w.classList.toggle('cover',cov);
+  renderRail();renderHome();renderApps();renderDvr();renderSettings();renderChrome();show(S.screen);
+}
+function renderRail(){const t=TH();const it=[['ic_home','Главная'],['ic_apps','Прилож.'],['ic_videocam','Записи'],['ic_tune','Настр.']];
+  $('#rail').innerHTML=it.map(([n,l],i)=>`<div class="ri ${i===S.screen?'sel':''}" data-i="${i}"><div class="rb">${lineIcon(n,36,i===S.screen?t.accent:'#8E8E93')}</div><div class="rl">${l}</div></div>`).join('')
+   +`<div style="flex:1"></div><div class="vb" data-v="+">${lineIcon('ic_vol_up',34,'#fff')}</div><div class="vb" data-v="-">${lineIcon('ic_vol_down',34,'#fff')}</div>`;
+  document.querySelectorAll('.ri').forEach(e=>e.onclick=()=>{S.screen=+e.dataset.i;renderRail();show(S.screen)});
+  document.querySelectorAll('.vb').forEach(e=>e.onclick=()=>toast(e.dataset.v==='+'?'Громкость +':'Громкость −'));
+}
+function show(i){for(let k=0;k<4;k++)$('#s'+k).classList.toggle('on',k===i);if(i===0){fitClock();const car=$('#car');if(car&&car.onscroll)car.onscroll()}}
+// ---- home ----
+function card(cls,solid,blur=true){return solid?`class="${cls}" style="background:${solid};border-radius:var(--r)"`:`class="card ${blur?'blur':''} ${cls}"`}
+function renderTiles(){
+  const t=TH();const tr=TRACKS[S.track];const fg=t.clockFg;
+  const clockFont=t.font==='condensed'?`font-family:RobotoC;font-weight:700`:t.font==='thin'?'font-weight:100':'font-weight:300';
+  const vis=TILES.map((x,i)=>i).filter(i=>S.tiles[i]);
+  let rows=[];for(let i=0;i<vis.length;i+=4)rows.push(vis.slice(i,i+4));
+  const tileH=rows.length?rows.length*112+(rows.length-1)*16:0;
+  const tileHtml=rows.map((r,ri)=>`<div class="trow">${r.map((i,ci)=>{const d=TILES[i];const wide=t.bento&&ri===0&&ci===0;
+     const icon=d.real?REAL[d.real](wide?52:(t.blocks?46:60)):tileIcon(d.art,wide?52:(t.blocks?46:60),d.missing?.4:1);
+     const ni=d.missing?`<div class="ni">не установлено</div>`:'';
+     if(t.blocks)return `<div class="tile blk press ${wide?'wide':''}" style="flex:${wide?2:1};background:${d.real?'#1C1C1E':d.blk}" data-t="${i}">${icon}<div class="tl">${d.t}</div>${ni}</div>`;
+     return `<div class="tile card blur press" data-t="${i}">${icon}<div class="tl">${d.t}</div>${ni}</div>`}).join('')}${r.length<4?'<div style="flex:1"></div>'.repeat(4-r.length):''}</div>`).join('');
+  const playing=S.playing;
+  const art=playing?`<img class="art" src="${DATA.covers[S.track]}">`:`<div class="artph">${tileIcon('tile_music',164)}</div>`;
+  const ppIcon=lineIcon(playing&&!S.paused?'ic_pause':'ic_play',44,t.id==='bento'?'#000':'#fff');
+  $('#s0').innerHTML=`<div class="home">
+   <div class="lcol">
+    <div ${card('clock',t.clockBg)}><div class="time" id="time" style="${clockFont};font-size:${t.clockSize}px;color:${fg}"></div>
+      <div class="date" id="date" style="color:${t.dateFg}"></div>
+      <div class="week" id="week"></div>
+      <div class="daybar"><div id="dayf" style="background:${t.clockBg?fg:t.accent}"></div><div style="flex:1;background:${t.clockBg?'rgba(0,0,0,.18)':'rgba(255,255,255,.18)'}"></div></div>
+      <div class="dayt" id="dayt" style="color:${t.dateFg};opacity:.85"></div></div>
+    ${S.showSpeed?`<div ${card('speed',t.speedBg)} onclick="toast('GPS: скорость по спутникам')"><div style="display:flex;align-items:flex-end"><div class="sv" id="sv" style="color:${t.speedFg}">62</div><div class="su" style="color:${t.speedFg};opacity:.7">км/ч</div></div>
+      <div class="gps" style="color:${t.speedFg};opacity:.75">${lineIcon('ic_speed',22,t.speedBg?t.speedFg:t.accent)}<span>GPS · ±4 м</span></div></div>`:''}
+   </div>
+   <div class="rcol">
+    <div ${card('media',t.glass?'':'#141416')} style="${t.glass?'':'background:#141416;border-radius:var(--r);display:flex;overflow:hidden;flex:1;min-height:0'}">${art}
+      <div class="mcol" onclick="toast('Открывает плеер')"><div class="src">${playing?tr.src:'МУЗЫКА'}</div><div class="ttl">${playing?tr.t:'Ничего не играет'}</div>
+       <div class="art2">${playing?tr.a:'Нажмите, чтобы открыть плеер'}</div><div style="flex:1"></div>
+       ${playing?`<div class="pb"><div class="pf" id="pf"></div></div><div class="tms"><span id="pos"></span><span id="rem"></span></div>`:''}
+       <div class="ctr"><div class="cb" data-m="prev">${lineIcon('ic_prev',36,'#fff')}</div><div class="pp" data-m="pp">${ppIcon}</div><div class="cb" data-m="next">${lineIcon('ic_next',36,'#fff')}</div></div></div></div>
+    <div class="tiles" style="height:${tileH}px">${tileHtml}</div>
+   </div></div>`;
+  document.querySelectorAll('[data-m]').forEach(e=>e.onclick=ev=>{ev.stopPropagation();const m=e.dataset.m;
+    if(m==='pp'){if(!S.playing){S.playing=true;S.paused=false}else S.paused=!S.paused}
+    else{S.playing=true;S.paused=false;S.track=(S.track+(m==='next'?1:TRACKS.length-1))%TRACKS.length;S.pos=0}
+    $('#mus').checked=S.playing;applyTheme()});
+  document.querySelectorAll('[data-t]').forEach(e=>{e.onclick=()=>toast(TILES[e.dataset.t].missing?'Не установлено — выберите приложение':'Открывает «'+TILES[e.dataset.t].t+'»');
+    e.oncontextmenu=ev=>{ev.preventDefault();toast('Долгое нажатие — выбрать другое приложение')}});
+  tick();
+}
+function fitClock(){const el=$('#time');if(!el)return;const t=TH();let fs=t.clockSize;el.style.fontSize=fs+'px';const max=268;
+  while(el.scrollWidth>max&&fs>56){fs-=2;el.style.fontSize=fs+'px'}}
+function tick(){tickCommon();tickTiles()}
+function tickTiles(){const now=new Date();const tm=$('#time');if(!tm)return;
+  const h=S.h24?String(now.getHours()).padStart(2,'0'):String(now.getHours()%12||12);
+  tm.textContent=`${h}:${String(now.getMinutes()).padStart(2,'0')}`;fitClock();
+  let d=now.toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});d=d.charAt(0).toUpperCase()+d.slice(1);$('#date').textContent=d;
+  const mins=now.getHours()*60+now.getMinutes();$('#dayf').style.width=(mins/1440*100)+'%';
+  const start=new Date(now.getFullYear(),0,1);const doy=Math.floor((now-start)/864e5)+1;
+  const wk=(()=>{const d=new Date(Date.UTC(now.getFullYear(),now.getMonth(),now.getDate()));const n=d.getUTCDay()||7;d.setUTCDate(d.getUTCDate()+4-n);const y=new Date(Date.UTC(d.getUTCFullYear(),0,1));return Math.ceil(((d-y)/864e5+1)/7)})();
+  {const t=TH();const dow=(now.getDay()+6)%7;const names=['ПН','ВТ','СР','ЧТ','ПТ','СБ','ВС'];let h='';
+   for(let i=0;i<7;i++){const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()-dow+i);const tod=i===dow;
+    h+=`<div><div class="wn" style="color:${t.dateFg};opacity:${i>=5?.5:.7}">${names[i]}</div><div class="wd" style="color:${tod?(t.clockBg||'#fff'):t.clockFg};${tod?`background:${t.clockBg?t.clockFg:t.accent};font-weight:700`:''}">${d.getDate()}</div></div>`}
+   $('#week').innerHTML=h}
+  $('#dayt').textContent=`НЕДЕЛЯ ${wk}  ·  ДЕНЬ ${doy}`;
+  const tr=TRACKS[S.track];if($('#pf')){$('#pf').style.width=(S.pos/tr.d*100)+'%';$('#pos').textContent=fmt(S.pos);$('#rem').textContent='−'+fmt(tr.d-S.pos)}
+  if($('#sv'))$('#sv').textContent=S.speed;}
+setInterval(()=>{if(S.playing&&!S.paused&&!P.has('freeze')){S.pos++;if(S.pos>=TRACKS[S.track].d){S.pos=0;S.track=(S.track+1)%TRACKS.length;applyTheme()}}
+  if(!P.has('freeze'))S.speed=Math.max(0,Math.min(110,S.speed+Math.round((Math.random()-.5)*4)));tick()},1000);
+// ===================== 1.3 layouts (mirror HomeScreen.kt builders) =====================
+const LAYOUTS=[['cockpit','Кокпит','Стрелочный спидометр, док снизу'],['map','Карта','Карта во весь экран, плеер-капсула'],['media','Медиа','Огромная обложка, карусель иконок'],
+ ['arc','Дуга','Иконки по дуге, минимализм'],['widgets','Виджеты','Доска виджетов: компас, поездка'],['tiles','Плитки','Классика 1.2: плитки и часы'],
+ ['minimal','Американский минимал','Карта на весь экран, панель авто слева, тонкий док',1,'Минимал'],['smart','Китайский смарт','Яркие карточки, глянцевый силуэт авто',1,'Смарт'],
+ ['premium','Европейский премиум','Хромированный прибор, контурная подсветка',1,'Премиум'],['sport','Спорт-кокпит','Два сегментных прибора, карбон, острые грани',1,'Спорт'],
+ ['nordic','Скандинавский','Спокойные крупные плитки, светлый или графит',1,'Сканди']];
+const TRIP={km:'18,4',time:'0:42',max:87,avg:26,bearing:48};
+const cfont=t=>t.font==='condensed'?`font-family:RobotoC;font-weight:700`:t.font==='thin'?'font-weight:100':'font-weight:300';
+const labelFg=t=>t.clockBg?'rgba(255,255,255,.7)':t.dateFg;
+function glass(extra='',radius){return `class="card blur" style="${radius!=null?`border-radius:${radius}px;`:''}${extra}"`}
+function solidOr(bg,extra='',radius){return bg?`style="background:${bg};border-radius:${radius!=null?radius+'px':'var(--r)'};${extra}"`:glass(extra,radius)}
+function tIcon(i,size,round){const d=TILES[i];const svg=d.real?REAL[d.real](size):tileIcon(d.art,size,d.missing?.45:1);
+  return round?`<div class="rnd" style="width:${size}px;height:${size}px;${d.missing?'opacity:.45':''}">${svg}</div>`:svg}
+function appEntry(i,size,label,round,w){return `<div class="ico" data-t="${i}" style="${w?`width:${w}px;flex:none`:'flex:1'}">${tIcon(i,size,round)}${label?`<div class="il" style="font-size:${label}px;${round?'text-shadow:0 1px 6px rgba(0,0,0,.6)':''}">${TILES[i].t}</div>`:''}</div>`}
+function allEntry(size,label,w){return `<div class="ico" data-all="1" style="width:${w}px;flex:none"><div style="width:${size}px;height:${size}px;border-radius:50%;background:rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center">${lineIcon('ic_apps',Math.round(size*.45),'#fff')}</div><div class="il" style="font-size:${label}px;text-shadow:0 1px 6px rgba(0,0,0,.6)">Все</div></div>`}
+const visT=()=>TILES.map((x,i)=>i).filter(i=>S.tiles[i]);
+function mediaInfo(){const tr=TRACKS[S.track];return S.playing?{src:tr.src,t:tr.t,a:tr.a}:{src:'МУЗЫКА',t:'Ничего не играет',a:'Нажмите, чтобы открыть плеер'}}
+function artBox(size,radius,pad){return S.playing?`<img src="${DATA.covers[S.track]}" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:${radius}px;flex:none;display:block">`
+  :`<div style="width:${size}px;height:${size}px;border-radius:${radius}px;flex:none;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center">${tileIcon('tile_music',Math.round(size*(1-2*pad)))}</div>`}
+function ctrls(side,play,gap,si,pi){const t=TH();const pp=lineIcon(S.playing&&!S.paused?'ic_pause':'ic_play',pi,t.id==='bento'?'#000':'#fff');
+  return `<div class="row" style="gap:${gap}px;flex:none"><div class="cb" data-m="prev" style="width:${side}px;height:${side}px">${lineIcon('ic_prev',si,'#fff')}</div><div class="pp" data-m="pp" style="width:${play}px;height:${play}px">${pp}</div><div class="cb" data-m="next" style="width:${side}px;height:${side}px">${lineIcon('ic_next',si,'#fff')}</div></div>`}
+function prog(h,times,fill,rest){return S.playing?`<div class="pb" style="height:${h}px;${rest?`background:${rest}`:''}"><div class="pf" style="border-radius:${h}px;${fill?`background:${fill}`:''}"></div></div>${times?`<div class="tms" style="margin:8px 0 0"><span class="pos"></span><span class="rem"></span></div>`:''}`:`<div style="height:${h}px"></div>${times?'<div style="height:23px"></div>':''}`}
+// ---- canvas-free widgets (SVG), same geometry as Widgets.kt ----
+const pol=(cx,cy,r,deg)=>{const a=deg*Math.PI/180;return [cx+Math.cos(a)*r,cy+Math.sin(a)*r]};
+function arcPath(cx,cy,r,a0,sweep){if(sweep<=0.01)return'';const [x0,y0]=pol(cx,cy,r,a0),[x1,y1]=pol(cx,cy,r,a0+sweep);return `M${x0} ${y0} A${r} ${r} 0 ${sweep>180?1:0} 1 ${x1} ${y1}`}
+function gaugeSVG(size,speed,acc){const c=size/2,r=c-4,ar=r-26,f=Math.min(speed,200)/200;let s='';
+  s+=`<circle cx="${c}" cy="${c}" r="${r}" fill="rgba(0,0,0,.69)" stroke="rgba(255,255,255,.2)" stroke-width="2"/>`;
+  s+=`<path d="${arcPath(c,c,ar,150,240)}" stroke="rgba(255,255,255,.15)" stroke-width="14" fill="none" stroke-linecap="round"/>`;
+  s+=`<defs><linearGradient id="ga" x1="0" x2="1"><stop offset="0" stop-color="${acc}" stop-opacity=".55"/><stop offset="1" stop-color="${acc}"/></linearGradient></defs>`;
+  s+=`<path d="${arcPath(c,c,ar,150,240*f)}" stroke="url(#ga)" stroke-width="14" fill="none" stroke-linecap="round"/>`;
+  const to=r-46;for(let v=0;v<=200;v+=10){const mj=v%20===0,a=150+240*v/200,l=mj?18:10;const[x0,y0]=pol(c,c,to,a),[x1,y1]=pol(c,c,to-l,a);
+    s+=`<line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y1}" stroke="${mj?'#fff':'rgba(255,255,255,.5)'}" stroke-width="${mj?4:2}" stroke-linecap="round"/>`;
+    if(mj){const[nx,ny]=pol(c,c,to-40,a);s+=`<text x="${nx}" y="${ny+8}" font-size="22" font-weight="500" fill="rgba(255,255,255,.8)" text-anchor="middle">${v}</text>`}}
+  const na=(150+240*f)*Math.PI/180,nl=r-56,nb=9,ca=Math.cos(na),sa=Math.sin(na);
+  s+=`<path d="M${c+ca*nl} ${c+sa*nl} L${c-sa*nb-ca*20} ${c+ca*nb-sa*20} L${c+sa*nb-ca*20} ${c-ca*nb-sa*20}Z" fill="${acc}"/>`;
+  s+=`<circle cx="${c}" cy="${c}" r="26" fill="#101012" stroke="${acc}" stroke-width="4"/>`;
+  const y=c+r*.52;s+=`<text x="${c}" y="${y}" font-size="84" font-weight="700" fill="#fff" text-anchor="middle">${speed}</text>`;
+  s+=`<text x="${c}" y="${y+32}" font-size="22" font-weight="500" fill="rgba(255,255,255,.6)" text-anchor="middle">км/ч</text>`;
+  s+=`<text x="${c}" y="${y+60}" font-size="17" fill="rgba(255,255,255,.6)" text-anchor="middle">GPS · ±4 м</text>`;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${s}</svg>`}
+function ringSVG(w,h,speed,acc,fg,bg,num,caption){const c=Math.min(w,h)/2,cx=w/2,cy=h/2,sw=c*.11,ar=c-sw*1.1;let s='';
+  if(bg)s+=`<circle cx="${cx}" cy="${cy}" r="${c}" fill="${bg}"/>`;
+  s+=`<path d="${arcPath(cx,cy,ar,135,270)}" stroke="${fg}" stroke-opacity=".16" stroke-width="${sw}" fill="none" stroke-linecap="round"/>`;
+  s+=`<path d="${arcPath(cx,cy,ar,135,270*Math.min(speed,200)/200)}" stroke="${acc}" stroke-width="${sw}" fill="none" stroke-linecap="round"/>`;
+  const by=cy+num*.30;s+=`<text x="${cx}" y="${by}" font-size="${num}" font-weight="700" fill="${fg}" text-anchor="middle">${speed}</text>`;
+  s+=`<text x="${cx}" y="${by+num*.3*1.5}" font-size="${num*.3}" font-weight="500" fill="${fg}" fill-opacity=".65" text-anchor="middle">км/ч</text>`;
+  if(caption)s+=`<text x="${cx}" y="${cy+ar*.86}" font-size="${num*.24}" font-weight="500" fill="${fg}" fill-opacity=".65" text-anchor="middle">GPS · ±4 м</text>`;
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${s}</svg>`}
+function compassSVG(sz,b,acc){const c=sz/2,r=c-6;let s=`<circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="2"/>`;
+  s+=`<path d="M${c} ${c-r-2} L${c-9} ${c-r+12} L${c+9} ${c-r+12}Z" fill="${acc}"/><g transform="rotate(${-b} ${c} ${c})">`;
+  for(let d=0;d<360;d+=30){const[x0,y0]=pol(c,c,r-16,d-90),[x1,y1]=pol(c,c,r-6,d-90);s+=`<line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y1}" stroke="rgba(255,255,255,.6)" stroke-width="2" stroke-linecap="round"/>`}
+  ['С','В','Ю','З'].forEach((L,i)=>{const[x,y]=pol(c,c,r-32,i*90-90);s+=`<text x="${x}" y="${y+7}" font-size="18" font-weight="700" fill="${i?'#fff':'#FF453A'}" text-anchor="middle">${L}</text>`});
+  const dirs=['С','СВ','В','ЮВ','Ю','ЮЗ','З','СЗ'];
+  s+=`</g><text x="${c}" y="${c+8}" font-size="34" font-weight="700" fill="#fff" text-anchor="middle">${dirs[Math.floor(((b+22.5)%360)/45)]}</text><text x="${c}" y="${c+32}" font-size="15" font-weight="500" fill="rgba(255,255,255,.6)" text-anchor="middle">${b}°</text>`;
+  return `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}">${s}</svg>`}
+function clockSVG(sz,acc){const c=sz/2,r=c-8,now=new Date(),m=now.getMinutes(),hh=now.getHours()%12+m/60;let s='';
+  for(let i=0;i<12;i++){const l=i%3===0?16:8;const[x0,y0]=pol(c,c,r,i*30),[x1,y1]=pol(c,c,r-l,i*30);s+=`<line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y1}" stroke="rgba(255,255,255,.6)" stroke-width="3" stroke-linecap="round"/>`}
+  const[hx,hy]=pol(c,c,r*.52,hh*30-90),[mx,my]=pol(c,c,r*.78,m*6-90);
+  s+=`<line x1="${c}" y1="${c}" x2="${hx}" y2="${hy}" stroke="#fff" stroke-width="8" stroke-linecap="round"/><line x1="${c}" y1="${c}" x2="${mx}" y2="${my}" stroke="#fff" stroke-width="5" stroke-linecap="round"/><circle cx="${c}" cy="${c}" r="7" fill="${acc}"/>`;
+  return `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}">${s}</svg>`}
+
+// ===================== 1.4 brand-inspired layouts (mirror HomeScreen.kt + BrandWidgets.kt) =====================
+const parseC=c=>{if(c[0]==='#'){const n=parseInt(c.slice(1),16);return[(n>>16)&255,(n>>8)&255,n&255,1]}const m=c.match(/[\d.]+/g).map(Number);return[m[0],m[1],m[2],m.length>3?m[3]:1]};
+function mixC(a,b,f){const x=parseC(a),y=parseC(b);return `rgba(${Math.round(x[0]*(1-f)+y[0]*f)},${Math.round(x[1]*(1-f)+y[1]*f)},${Math.round(x[2]*(1-f)+y[2]*f)},${x[3]})`}
+function greeting(){const h=new Date().getHours();return h>=5&&h<=11?'Доброе утро':h>=12&&h<=17?'Добрый день':h>=18&&h<=22?'Добрый вечер':'Доброй ночи'}
+function ctrlsX(side,play,gap,si,pi,o={}){const fg=o.fg||'#fff',bb=o.bb||'rgba(255,255,255,.14)',pb=o.pb||TH().accent,pf=o.pf||(TH().id==='bento'&&!o.pb?'#000':'#fff');
+  const pp=lineIcon(S.playing&&!S.paused?'ic_pause':'ic_play',pi,pf);
+  return `<div class="row" style="gap:${gap}px;flex:none"><div class="cb" data-m="prev" style="width:${side}px;height:${side}px;background:${bb}">${lineIcon('ic_prev',si,fg)}</div><div class="pp" data-m="pp" style="width:${play}px;height:${play}px;background:${pb}">${pp}</div><div class="cb" data-m="next" style="width:${side}px;height:${side}px;background:${bb}">${lineIcon('ic_next',si,fg)}</div></div>`}
+function mapLayer(w,h,day,rad){const px=w/2,py=h*.55,t=TH();
+  return `<div data-nav="1" style="position:absolute;inset:0;overflow:hidden;cursor:pointer;border-radius:${rad}px;background:${day?'#E4E4E0':'#16181D'}"><img src="${day?DATA.mapDay:DATA.map}" style="position:absolute;left:${px-568}px;top:${py-378.4}px;width:1136px;height:688px;max-width:none">
+   <svg class="abs" style="left:0;top:0" width="${w}" height="${h}"><g transform="rotate(${TRIP.bearing} ${px} ${py})"><path d="M${px} ${py} L${px-34} ${py-80} L${px+34} ${py-80}Z" fill="${t.accent}" fill-opacity=".35"/></g>
+   <circle cx="${px}" cy="${py}" r="30" fill="${t.accent}" fill-opacity=".22"/><circle cx="${px}" cy="${py}" r="13" fill="#fff"/><circle cx="${px}" cy="${py}" r="9" fill="${t.accent}"/>
+   <text x="${w-12}" y="${h-10}" font-size="12" fill="${day?'rgba(0,0,0,.6)':'rgba(255,255,255,.5)'}" text-anchor="end">© участники OpenStreetMap</text></svg></div>`}
+function carTopSVG(acc){const P=DATA.shapes;return `<svg width="100%" height="100%" viewBox="0 0 200 400" preserveAspectRatio="xMidYMid meet"><defs><linearGradient id="ctb" x1="0" x2="200" y1="0" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#4A4E56"/><stop offset=".5" stop-color="#9AA0AA"/><stop offset="1" stop-color="#4A4E56"/></linearGradient></defs>
+  <path d="${P.CAR_TOP_BODY}" fill="url(#ctb)" stroke="rgba(255,255,255,.2)" stroke-width="2"/><path d="${P.CAR_TOP_GLASS}" fill="#15171B"/><path d="${P.CAR_TOP_MIRRORS}" fill="url(#ctb)"/><path d="${P.CAR_TOP_HEAD}" fill="${acc}"/><path d="${P.CAR_TOP_TAIL}" fill="#FF3B30"/></svg>`}
+function carSideSVG(acc){const P=DATA.shapes;const wh=x=>`<circle cx="${x}" cy="172" r="38" fill="#0B0C0F"/><circle cx="${x}" cy="172" r="25" fill="#B8BEC8"/><circle cx="${x}" cy="172" r="9" fill="#2A2D33"/>`;
+  return `<svg width="100%" height="100%" viewBox="0 0 600 220" preserveAspectRatio="xMidYMid meet"><defs>
+  <linearGradient id="csb" x1="0" x2="0" y1="50" y2="174" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#FDFEFF"/><stop offset=".5" stop-color="#D5DAE3"/><stop offset="1" stop-color="#7D8696"/></linearGradient>
+  <linearGradient id="csg" x1="0" x2="0" y1="60" y2="100" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#3A4458"/><stop offset="1" stop-color="#10141C"/></linearGradient>
+  <radialGradient id="csl"><stop offset="0" stop-color="${acc}" stop-opacity=".55"/><stop offset="1" stop-color="${acc}" stop-opacity="0"/></radialGradient>
+  <radialGradient id="css"><stop offset="0" stop-color="#000" stop-opacity=".6"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient></defs>
+  <ellipse cx="312" cy="196" rx="300" ry="18" fill="url(#csl)"/><ellipse cx="312" cy="182" rx="280" ry="14" fill="url(#css)"/>
+  <path d="${P.CAR_SIDE_BODY}" fill="url(#csb)"/><path d="${P.CAR_SIDE_GLASS}" fill="url(#csg)"/><path d="${P.CAR_SIDE_LINE}" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="${P.CAR_SIDE_HEAD}" fill="${acc}"/><path d="${P.CAR_SIDE_TAIL}" fill="#FF3B30"/>${wh(150)}${wh(470)}</svg>`}
+function ambientSVG(acc){const P=DATA.shapes,hi=mixC(acc,'#ffffff',.4);
+  const g=`<linearGradient id="amb" x1="0" x2="1168" y1="0" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${acc}" stop-opacity="0"/><stop offset=".25" stop-color="${acc}"/><stop offset=".5" stop-color="${hi}"/><stop offset=".75" stop-color="${acc}"/><stop offset="1" stop-color="${acc}" stop-opacity="0"/></linearGradient>`;
+  const ln=(d,k)=>`<path d="${d}" fill="none" stroke="url(#amb)" stroke-width="16" stroke-linecap="round" stroke-opacity="${k?.15:.235}"/><path d="${d}" fill="none" stroke="url(#amb)" stroke-width="2.5" stroke-linecap="round" stroke-opacity="${k?.67:1}"/>`;
+  return `<svg class="abs" style="left:0;top:0" width="1168" height="720" viewBox="0 0 1168 720"><defs>${g}</defs>${ln(P.AMBIENT_1,0)}${ln(P.AMBIENT_2,1)}${ln(P.AMBIENT_3,1)}</svg>`}
+function luxSVG(sz,speed,acc){const c=sz/2,r=c-6,max=220,f=Math.min(speed,max)/max;let s=`<defs><radialGradient id="lxf" cx="${c}" cy="${c-r*.3}" r="${r*1.3}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1A1D24"/><stop offset="1" stop-color="#020305"/></radialGradient>
+  <linearGradient id="lxb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E6E9EE"/><stop offset=".25" stop-color="#5A5E66"/><stop offset=".5" stop-color="#C9CDD4"/><stop offset=".75" stop-color="#4A4E55"/><stop offset="1" stop-color="#E6E9EE"/></linearGradient>
+  <radialGradient id="lxc" cx="${c-4}" cy="${c-4}" r="18" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#F2F4F7"/><stop offset="1" stop-color="#6B7078"/></radialGradient></defs>`;
+  s+=`<circle cx="${c}" cy="${c}" r="${r}" fill="url(#lxf)"/><circle cx="${c}" cy="${c}" r="${r-4}" fill="none" stroke="url(#lxb)" stroke-width="9"/><circle cx="${c}" cy="${c}" r="${r-52}" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="1.5"/>`;
+  const ar=r-28;if(f>.002){s+=`<path d="${arcPath(c,c,ar,150,240*f)}" stroke="${acc}" stroke-opacity=".22" stroke-width="20" fill="none" stroke-linecap="round"/><path d="${arcPath(c,c,ar,150,240*f)}" stroke="${acc}" stroke-width="4" fill="none" stroke-linecap="round"/>`}
+  const to=r-40;for(let v=0;v<=max;v+=10){const mj=v%20===0,a=150+240*v/max,l=mj?14:7;const[x0,y0]=pol(c,c,to,a),[x1,y1]=pol(c,c,to-l,a);
+    s+=`<line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y1}" stroke="rgba(255,255,255,${mj?.85:.35})" stroke-width="${mj?2.5:1.2}"/>`;
+    if(v%40===0){const[nx,ny]=pol(c,c,to-34,a);s+=`<text x="${nx}" y="${ny+7}" font-size="20" font-weight="300" fill="rgba(255,255,255,.7)" text-anchor="middle">${v}</text>`}}
+  const a=(150+240*f)*Math.PI/180,ca=Math.cos(a),sa=Math.sin(a);
+  s+=`<line x1="${c-ca*22}" y1="${c-sa*22}" x2="${c+ca*(r-70)}" y2="${c+sa*(r-70)}" stroke="${acc}" stroke-width="4" stroke-linecap="round"/><line x1="${c+ca*(r-70)}" y1="${c+sa*(r-70)}" x2="${c+ca*(r-46)}" y2="${c+sa*(r-46)}" stroke="#fff" stroke-width="4" stroke-linecap="round"/><circle cx="${c}" cy="${c}" r="16" fill="url(#lxc)"/>`;
+  s+=`<text x="${c}" y="${c+r*.5}" font-size="78" font-weight="100" fill="#fff" text-anchor="middle">${speed}</text><text x="${c}" y="${c+r*.5+30}" font-size="16" font-weight="500" fill="rgba(255,255,255,.6)" text-anchor="middle" letter-spacing="4.8">КМ/Ч</text>`;
+  return `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}">${s}</svg>`}
+function sportSVG(sz,val,acc,clock,main,sub){const c=sz/2,r=c-4,max=clock?1440:240,n=48,st=140,sw=260,step=sw/n,ar=r-24,lit=Math.min(val,max)/max*n;
+  let s=`<defs><radialGradient id="sgf${clock?1:0}" cx="${c}" cy="${c}" r="${r}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#16171B"/><stop offset="1" stop-color="#050506"/></radialGradient></defs><circle cx="${c}" cy="${c}" r="${r}" fill="url(#sgf${clock?1:0})" stroke="rgba(255,255,255,.25)" stroke-width="2"/>`;
+  for(let i=0;i<n;i++){const on=i<lit,red=!clock&&i>=n*.8;const col=on&&red?'#FF3B30':on?acc:red?'rgba(255,59,48,.25)':'#26272B';s+=`<path d="${arcPath(c,c,ar,st+i*step+.7,step-1.4)}" stroke="${col}" stroke-width="22" fill="none"/>`}
+  s+=`<circle cx="${c}" cy="${c}" r="${r-44}" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="1.5"/>`;
+  const F='font-family="RobotoC" font-style="italic" font-weight="700"';
+  const labels=clock?[[0,'0'],[360,'6'],[720,'12'],[1080,'18'],[1440,'24']]:[0,40,80,120,160,200,240].map(v=>[v,''+v]);
+  labels.forEach(([v,l])=>{const[x,y]=pol(c,c,r-66,st+sw*v/max);s+=`<text x="${x}" y="${y+8}" font-size="22" ${F} fill="rgba(255,255,255,.8)" text-anchor="middle">${l}</text>`});
+  const[px,py]=pol(c,c,r-46,st+sw*Math.min(val,max)/max);s+=`<circle cx="${px}" cy="${py}" r="6" fill="${acc}"/>`;
+  s+=`<text x="${c}" y="${c+(clock?22:32)}" font-size="${clock?74:104}" ${F} fill="#fff" text-anchor="middle">${main}</text>`;
+  s+=`<text x="${c}" y="${c+(clock?62:76)}" font-size="18" ${F} fill="rgba(255,255,255,.6)" text-anchor="middle" letter-spacing="4.5">${clock?sub:'КМ/Ч'}</text>`;
+  s+=`<text x="${c}" y="${c-(clock?62:82)}" font-size="15" ${F} fill="${acc}" text-anchor="middle" letter-spacing="3.75">${clock?'ВРЕМЯ':'СКОРОСТЬ'}</text>`;
+  return `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}">${s}</svg>`}
+function chamf(cut,fill,hair,acc,outer,inner,html,attr=''){return `<div class="chf" ${attr} style="--c:${cut}px;position:relative;background:${hair};padding:1.5px;${outer}"><div class="chf" style="--c:${cut-.6}px;background:${fill};height:100%;${inner}">${html}</div>${acc?`<div class="abs" style="left:${cut}px;top:0;width:40%;height:3px;background:${acc}"></div>`:''}</div>`}
+function renderHome(){
+  const L=S.layout;
+  if(L==='tiles'){renderTiles();return}
+  const t=TH(),mi=mediaInfo(),cf=cfont(t);let h='';
+  if(L==='cockpit'){
+    const stat=(lbl,v,u)=>`<div ${glass('flex:1;padding:16px 16px 14px 20px;display:flex;flex-direction:column')}><div class="cap" style="font-size:14px;color:${labelFg(t)}">${lbl}</div><div style="flex:1"></div><div class="row" style="align-items:flex-end"><span style="font-size:38px;font-weight:700;line-height:1">${v}</span><span style="font-size:17px;color:#8E8E93;font-weight:500;padding:0 0 3px 6px">${u}</span></div></div>`;
+    h=`<div class="col" style="padding:20px;height:100%">
+     <div class="row" style="height:544px;align-items:flex-start;gap:24px">
+      <div id="gauge" class="press" style="width:544px;height:544px;flex:none" data-gps="1"></div>
+      <div class="col" style="flex:1;height:100%;min-width:0">
+        <div class="row" style="align-items:flex-end"><div class="tm" style="${cf};font-size:104px;line-height:108px;letter-spacing:-.02em;color:#fff"></div>
+          <div class="col" style="padding:0 0 14px 20px"><div class="dtx" style="font-size:22px;font-weight:500;color:${t.dateFg}"></div><div class="wkx" style="font-size:17px;font-weight:500;color:rgba(255,255,255,.6);margin-top:6px"></div></div></div>
+        <div ${glass('height:220px;margin-top:18px;padding:16px 20px 16px 16px;display:flex;flex:none')} data-media="1">${artBox(188,14,.22)}
+          <div class="col" style="flex:1;min-width:0;padding:4px 0 0 20px"><div class="src" style="font-size:13px">${mi.src}</div><div class="ell" style="font-size:26px;font-weight:700;margin-top:8px">${mi.t}</div><div class="ell" style="font-size:18px;color:rgba(255,255,255,.7);margin-top:4px">${mi.a}</div><div style="flex:1"></div>
+          <div style="margin-bottom:14px">${prog(4,false)}</div>${ctrls(62,76,14,30,38)}</div></div>
+        <div class="row" style="flex:1;margin-top:18px;gap:16px;align-items:stretch">${stat('ПОЕЗДКА',TRIP.km,'км')}${stat('В ПУТИ',TRIP.time,'ч:мин')}${stat('МАКС.',TRIP.max,'км/ч')}</div>
+      </div></div>
+     <div ${glass('height:120px;margin-top:16px;padding:10px 12px 8px;display:flex;align-items:center',30)}>${visT().map(i=>appEntry(i,60,15)).join('')}</div></div>`;
+  } else if(L==='map'){
+    h=`<div style="position:absolute;inset:16px;border-radius:var(--r);overflow:hidden;cursor:pointer" data-nav="1"><img src="${DATA.map}" style="width:1136px;height:688px;display:block">
+       <svg class="abs" style="left:0;top:0" width="1136" height="688"><g transform="rotate(${TRIP.bearing} 568 378.4)"><path d="M568 378.4 L534 298.4 L602 298.4Z" fill="${t.accent}" fill-opacity=".35"/></g>
+       <circle cx="568" cy="378.4" r="30" fill="${t.accent}" fill-opacity=".22"/><circle cx="568" cy="378.4" r="13" fill="#fff"/><circle cx="568" cy="378.4" r="9" fill="${t.accent}"/>
+       <text x="1124" y="678" font-size="12" fill="rgba(255,255,255,.5)" text-anchor="end">© участники OpenStreetMap</text></svg></div>
+     <div class="abs col" style="left:32px;top:32px"><div ${glass('padding:14px 26px 16px 22px')}><div class="tm" style="${cf};font-size:64px;line-height:1;color:#fff"></div><div class="dtx" style="font-size:18px;font-weight:500;margin-top:4px;color:${t.dateFg}"></div></div>
+       <div class="ring press" data-gps="1" data-w="150" data-h="150" data-num="50" data-bg="rgba(0,0,0,.55)" style="margin-top:14px;width:150px;height:150px"></div></div>
+     <div ${glass('position:absolute;top:32px;right:142px;height:56px;padding:0 22px 0 18px;display:flex;align-items:center;cursor:pointer',28)} data-nav="1">${lineIcon('ic_nav',26,t.accent)}<span style="font-size:19px;font-weight:500;padding-left:10px">Навигатор</span></div>
+     <div ${glass('position:absolute;left:32px;bottom:32px;width:640px;height:104px;padding:12px 16px 12px 12px;display:flex;align-items:center',52)} data-media="1">${artBox(80,40,.2)}
+       <div class="col" style="flex:1;min-width:0;padding:0 10px 0 16px"><div class="ell" style="font-size:22px;font-weight:700">${mi.t}</div><div class="ell" style="font-size:16px;color:rgba(255,255,255,.7);margin-top:4px">${mi.a}</div><div style="margin-top:10px">${prog(3,false)}</div></div>${ctrls(56,68,8,28,34)}</div>
+     <div ${glass('position:absolute;right:32px;top:50%;transform:translateY(-50%);width:96px;padding:14px 0;display:flex;flex-direction:column;align-items:center;gap:16px',30)}>${visT().map(i=>`<div class="ico" data-t="${i}">${tIcon(i,56)}</div>`).join('')}</div>`;
+  } else if(L==='media'){
+    const r=Math.round(t.radius*1.2);
+    h=`<div class="col" style="padding:20px 20px 12px;height:100%">
+      <div class="row" style="flex:1;align-items:stretch;min-height:0" data-media="1">
+       <div ${glass('flex:none;overflow:hidden',r)}>${artBox(520,r,.26)}</div>
+       <div class="col" style="flex:1;min-width:0;padding:4px 0 4px 36px">
+        <div class="row"><div class="tm" style="${cf};font-size:40px;line-height:1;color:#fff"></div><div class="dtx" style="flex:1;font-size:20px;font-weight:500;padding:8px 0 0 16px;color:${t.dateFg}"></div>
+         <div ${glass('height:52px;padding:0 20px 0 18px;display:flex;align-items:center;cursor:pointer',26)} data-gps="1">${lineIcon('ic_speed',24,t.accent)}<span class="spd" style="font-size:26px;font-weight:700;margin-left:10px"></span><span style="font-size:17px;color:#8E8E93;font-weight:500">&nbsp;км/ч</span></div></div>
+        <div style="flex:1"></div>
+        <div class="src" style="font-size:16px;color:${t.accent}">${mi.src}</div>
+        <div style="font-size:46px;font-weight:700;margin-top:14px;line-height:1.05;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${mi.t}</div>
+        <div style="font-size:26px;color:rgba(255,255,255,.7);margin-top:10px">${mi.a}</div>
+        <div style="flex:1"></div><div style="margin-bottom:22px">${prog(6,true)}</div>${ctrls(96,124,26,42,56)}</div></div>
+      <div id="car" style="height:150px;margin-top:18px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;flex:none"><div class="row" style="padding:0 8px;width:max-content;align-items:flex-start">${visT().map(i=>appEntry(i,92,16,true,140)).join('')}${allEntry(92,16,140)}</div></div></div>`;
+  } else if(L==='arc'){
+    const ents=visT().map(i=>appEntry(i,100,17,true,124));ents.push(allEntry(100,17,124));
+    const W=1096,n=ents.length;
+    const arc=ents.map((e,k)=>{const f=n===1?.5:k/(n-1),d=(f-.5)*2;return `<div class="abs" style="left:${f*(W-124)}px;top:${96*d*d}px;width:124px;height:140px">${e}</div>`}).join('');
+    h=`<div class="abs col" style="left:28px;top:16px"><div class="tm" style="${cf};font-size:150px;line-height:160px;letter-spacing:-.02em;color:${t.clockBg?'#fff':t.clockFg}"></div><div class="dtx" style="font-size:24px;font-weight:500;margin-left:6px;color:${t.dateFg}"></div></div>
+      <div class="abs col press" data-gps="1" style="right:28px;top:46px;align-items:flex-end"><div class="row" style="align-items:flex-end"><span class="spd" style="font-size:92px;font-weight:700;line-height:1;letter-spacing:-.02em"></span><span style="font-size:22px;color:#8E8E93;font-weight:500;padding:0 0 12px 10px">км/ч</span></div>
+       <div style="width:260px;height:6px;border-radius:3px;background:rgba(255,255,255,.2);margin-top:10px;overflow:hidden"><div id="sbar" style="height:100%;background:${t.accent};border-radius:3px"></div></div><div style="font-size:16px;color:#8E8E93;font-weight:500;margin-top:10px">GPS · ±4 м</div></div>
+      <div class="abs" style="left:36px;top:268px;width:${W}px;height:236px">${arc}</div>
+      <div ${glass('position:absolute;left:28px;right:28px;bottom:24px;height:112px;padding:12px 16px 12px 12px;display:flex;align-items:center',56)} data-media="1">${artBox(88,44,.2)}
+       <div class="col" style="flex:1;min-width:0;padding:0 24px 0 20px"><div class="ell" style="font-size:24px;font-weight:700">${mi.t}</div><div class="ell" style="font-size:18px;color:rgba(255,255,255,.7);margin-top:4px">${mi.a}</div><div style="margin-top:12px">${prog(4,false)}</div></div>${ctrls(64,80,12,30,38)}</div>`;
+  } else if(L==='widgets'){
+    const cw=270,ch=216,g=16;const cell=(c,r,cs,rs)=>`position:absolute;left:${c*(cw+g)}px;top:${r*(ch+g)}px;width:${cs*cw+(cs-1)*g}px;height:${rs*ch+(rs-1)*g}px;`;
+    const sfg=t.speedBg?t.speedFg:'#fff',dfg=t.clockBg?t.clockFg:'#fff';
+    const vis=visT();let apps='';for(let k=0;k<vis.length;k+=4){const r=vis.slice(k,k+4);apps+=`<div class="row" style="flex:1;align-items:center">${r.map(i=>appEntry(i,58,14)).join('')}${'<div style="flex:1"></div>'.repeat(4-r.length)}</div>`}
+    h=`<div style="position:absolute;left:20px;top:20px;width:1128px;height:680px">
+     <div ${solidOr(t.speedBg,cell(0,0,2,2)+'cursor:pointer')} data-gps="1"><div class="cap abs" style="left:22px;top:18px;font-size:15px;letter-spacing:.1em;color:${sfg};opacity:.75">СКОРОСТЬ</div>
+       <div class="ring abs" style="left:30px;top:30px" data-w="496" data-h="394" data-num="104" data-cap="1" data-acc="${t.speedBg?t.speedFg:t.accent}" data-fg="${sfg}"></div></div>
+     <div ${glass(cell(2,0,2,1)+'padding:16px 20px 16px 16px;display:flex')} data-media="1">${artBox(184,14,.22)}
+       <div class="col" style="flex:1;min-width:0;padding:2px 0 0 18px"><div class="src" style="font-size:12px">${mi.src}</div><div class="ell" style="font-size:24px;font-weight:700;margin-top:8px">${mi.t}</div><div class="ell" style="font-size:17px;color:rgba(255,255,255,.7);margin-top:4px">${mi.a}</div><div style="flex:1"></div><div style="margin-bottom:12px">${prog(4,false)}</div>${ctrls(54,64,10,26,32)}</div></div>
+     <div ${solidOr(t.clockBg,cell(2,1,1,1)+'display:flex;flex-direction:column;align-items:center;padding:20px 12px 16px')}><div class="cap wday" style="font-size:18px;color:${t.clockBg?t.clockFg:t.accent}"></div>
+       <div class="dnum" style="flex:1;display:flex;align-items:center;font-size:96px;line-height:1;${cf};color:${dfg}"></div><div class="mon" style="font-size:19px;font-weight:500;color:${dfg};opacity:.7"></div></div>
+     <div ${glass(cell(3,1,1,1)+'display:flex;align-items:center;justify-content:center')}>${compassSVG(176,TRIP.bearing,t.accent)}</div>
+     <div ${glass(cell(0,2,1,1)+'padding:18px 18px 18px 22px;display:flex;flex-direction:column')}><div class="cap" style="font-size:15px;letter-spacing:.1em;color:${labelFg(t)}">ПОЕЗДКА</div><div style="flex:1"></div>
+       <div class="row" style="align-items:flex-end"><span style="font-size:50px;font-weight:700;line-height:1">${TRIP.km}</span><span style="font-size:19px;color:#8E8E93;font-weight:500;padding:0 0 6px 6px">км</span></div>
+       <div style="font-size:17px;color:#8E8E93;font-weight:500;margin-top:6px;line-height:1.25">${TRIP.time} в пути<br>ср. ${TRIP.avg} · макс. ${TRIP.max}</div></div>
+     <div ${glass(cell(1,2,1,1)+'display:flex;align-items:center;justify-content:center')} id="aclock"></div>
+     <div ${glass(cell(2,2,2,1)+'padding:12px 10px 10px;display:flex;flex-direction:column')}>${apps}</div></div>`;
+  } else if(L==='minimal'){
+    const st=(v,l)=>`<div class="col" style="flex:1;align-items:center"><div style="font-size:24px;font-weight:500;line-height:1">${v}</div><div class="cap" style="font-size:13px;color:#8E8E93;font-weight:500;letter-spacing:.06em;margin-top:4px">${l}</div></div>`;
+    h=`<div class="col" style="height:100%"><div class="row" style="flex:1;align-items:stretch;min-height:0">
+      <div class="col" style="width:360px;flex:none;background:rgba(18,19,22,.96);padding:22px 28px;align-items:center">
+       <div class="row" style="width:100%"><div class="tm" style="font-size:22px;font-weight:500;line-height:1;flex:1"></div><div style="font-size:15px;color:#8E8E93;font-weight:500">GPS · ±4 м</div></div>
+       <div class="spd" data-gps="1" style="cursor:pointer;font-size:120px;font-weight:300;line-height:1;margin-top:10px;letter-spacing:-.03em"></div>
+       <div style="font-size:19px;color:#8E8E93;font-weight:500;margin-top:2px">км/ч</div>
+       <div style="flex:1;width:100%;margin:14px 0;min-height:0">${carTopSVG(t.accent)}</div>
+       <div class="row" style="width:100%">${st(TRIP.km,'КМ')}${st(TRIP.time,'В ПУТИ')}${st(TRIP.max,'МАКС')}</div></div>
+      <div style="flex:1;position:relative;overflow:hidden">${mapLayer(808,640,false,0)}
+       <div class="abs row" data-nav="1" style="cursor:pointer;left:20px;top:20px;width:330px;height:56px;padding:0 20px;border-radius:14px;background:rgba(242,242,244,.94)">${lineIcon('ic_search',24,'#3A3A3C')}<span style="font-size:19px;font-weight:500;color:#3A3A3C;padding-left:12px">Куда едем?</span></div>
+       <div class="abs row" data-media="1" style="left:20px;bottom:20px;width:500px;height:104px;padding:12px 14px 12px 12px;border-radius:14px;background:rgba(20,21,24,.94)">${artBox(80,8,.2)}
+        <div class="col" style="flex:1;min-width:0;padding:0 8px 0 14px"><div class="ell" style="font-size:20px;font-weight:700">${mi.t}</div><div class="ell" style="font-size:16px;color:rgba(255,255,255,.7);margin-top:4px">${mi.a}</div><div style="margin-top:10px">${prog(3,false)}</div></div>${ctrlsX(50,58,6,26,30,{pb:'transparent'})}</div>
+      </div></div>
+      <div class="row" style="height:80px;flex:none;background:#08080A;justify-content:center">${visT().map(i=>`<div class="ico" data-t="${i}" style="margin:0 22px">${tIcon(i,50)}</div>`).join('')}<div class="ico" data-all="1" style="margin:0 22px"><div style="width:50px;height:50px;border-radius:11.5px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center">${lineIcon('ic_apps',22,'#fff')}</div></div></div></div>`;
+  } else if(L==='smart'){
+    const hero=mixC('rgba(20,26,58,.94)',t.accent,.55);
+    const chip=(ic,v,l)=>`<div class="row" style="height:44px;padding:0 18px 0 16px;border-radius:22px;background:rgba(255,255,255,.18);margin-right:10px">${lineIcon(ic,20,'#fff')}<span style="font-size:19px;font-weight:700;margin-left:8px">${v}</span><span style="font-size:15px;font-weight:500;color:rgba(255,255,255,.7)">&nbsp;${l}</span></div>`;
+    const vis=visT();let cells='';for(let r=0;r<2;r++){let row='';for(let k=0;k<4;k++){const n=r*4+k;const ml=k?'margin-left:12px;':'';
+      if(n<vis.length){const i=vis[n],d=TILES[i];const base=d.real?'#2C3446':d.blk;row+=`<div class="col" data-t="${i}" style="${ml}flex:1;cursor:pointer;align-items:center;justify-content:center;border-radius:24px;background:linear-gradient(${mixC(base,'#ffffff',.25)},${base})">${tIcon(i,54)}<div style="font-size:14px;font-weight:700;margin-top:8px;text-align:center;padding:0 4px" class="ell">${d.t}</div></div>`}
+      else if(n===vis.length)row+=`<div class="col" data-all="1" style="${ml}flex:1;cursor:pointer;align-items:center;justify-content:center;border-radius:24px;background:rgba(28,31,42,.8)"><div style="width:54px;height:54px;border-radius:12px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center">${lineIcon('ic_apps',24,'#fff')}</div><div style="font-size:14px;font-weight:500;margin-top:8px">Все</div></div>`;
+      else row+=`<div style="${ml}flex:1"></div>`}
+      cells+=`<div class="row" style="flex:1;align-items:stretch;${r?'margin-top:12px':''}">${row}</div>`}
+    h=`<div class="row" style="padding:20px;height:100%;align-items:stretch">
+      <div style="flex:1;position:relative;border-radius:32px;background:linear-gradient(to bottom right,${hero},rgba(14,18,40,.94),rgba(6,8,16,.94));overflow:hidden">
+       <div class="abs col" style="left:32px;top:26px"><div style="font-size:22px;font-weight:500;color:rgba(255,255,255,.75)">${greeting()}</div><div class="tm" style="font-size:84px;font-weight:700;line-height:1;margin-top:6px"></div><div class="dtx" style="font-size:18px;font-weight:500;color:rgba(255,255,255,.7);margin-top:8px"></div></div>
+       <div class="abs ring" data-gps="1" data-w="150" data-h="150" data-num="46" data-bg="rgba(0,0,0,.25)" style="cursor:pointer;right:24px;top:24px;width:150px;height:150px"></div>
+       <div class="abs" style="left:20px;right:20px;bottom:86px;height:250px">${carSideSVG(t.accent)}</div>
+       <div class="abs row" style="left:28px;bottom:26px">${chip('ic_nav',TRIP.km,'км')}${chip('ic_refresh',TRIP.time,'в пути')}${chip('ic_speed',TRIP.max,'макс')}</div></div>
+      <div class="col" style="width:430px;flex:none;margin-left:16px">
+       <div class="col" data-media="1" style="height:296px;flex:none;padding:22px 22px 18px;border-radius:32px;background:linear-gradient(to bottom right,#FF3D7F,#8E2DE2,#4A00E0);cursor:pointer">
+        <div class="row" style="align-items:flex-start">${artBox(116,20,.22)}<div class="col" style="flex:1;min-width:0;padding:4px 0 0 18px"><div class="src" style="font-size:12px;color:rgba(255,255,255,.6)">${mi.src}</div><div style="font-size:24px;font-weight:700;margin-top:8px;line-height:1.05;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${mi.t}</div><div style="font-size:17px;color:rgba(255,255,255,.7);margin-top:4px">${mi.a}</div></div></div>
+        <div style="flex:1"></div><div style="margin-bottom:12px">${prog(4,false)}</div><div class="row" style="justify-content:center">${ctrlsX(58,70,22,28,34,{pb:'#fff',pf:'#5B12D8'})}</div></div>
+       <div class="col" style="flex:1;margin-top:16px">${cells}</div></div></div>`;
+  } else if(L==='premium'){
+    const pill=(icon,label,attr)=>`<div class="row" ${attr} style="cursor:pointer;height:58px;margin-top:8px;padding:0 16px 0 12px;border-radius:30px;background:rgba(255,255,255,.09)">${icon}<span style="font-size:18px;font-weight:300;margin-left:14px">${label}</span></div>`;
+    h=`<div class="abs" style="inset:0;background:linear-gradient(rgba(8,10,16,.91),rgba(2,2,3,.96))"></div>${ambientSVG(t.accent)}
+     <div class="row" style="position:absolute;inset:0;padding:24px">
+      <div class="lux" data-gps="1" style="cursor:pointer;width:430px;height:430px;flex:none"></div>
+      <div class="col" data-media="1" style="flex:1;height:100%;margin:0 16px;align-items:center;min-width:0;cursor:pointer">
+       <div class="tm" style="font-size:88px;font-weight:100;line-height:96px;height:96px"></div><div class="dtx" style="font-size:17px;font-weight:500;color:rgba(255,255,255,.6);letter-spacing:.12em;margin-top:2px"></div>
+       <div style="width:184px;height:184px;border-radius:50%;border:2px solid ${t.accent};display:flex;align-items:center;justify-content:center;margin-top:26px;flex:none"><div style="width:168px;height:168px;border-radius:50%;overflow:hidden">${artBox(168,0,.26)}</div></div>
+       <div class="src" style="font-size:12px;color:${t.accent};margin-top:18px">${mi.src}</div><div class="ell" style="font-size:25px;font-weight:300;margin-top:8px;max-width:100%">${mi.t}</div><div class="ell" style="font-size:17px;color:rgba(255,255,255,.7);margin-top:4px;max-width:100%">${mi.a}</div>
+       <div style="width:260px;margin-top:14px">${prog(2,false,t.accent)}</div><div style="margin-top:12px">${ctrlsX(54,64,18,26,30,{pb:'rgba(255,255,255,.12)'})}</div></div>
+      <div class="col" style="width:250px;flex:none;justify-content:center">${visT().map(i=>pill(tIcon(i,36),TILES[i].t,`data-t="${i}"`)).join('')}${pill(`<div style="width:36px;height:36px;display:flex;align-items:center;justify-content:center">${lineIcon('ic_apps',24,'#fff')}</div>`,'Все приложения','data-all="1"')}</div></div>`;
+  } else if(L==='sport'){
+    const hair='rgba(255,255,255,.2)',cb='rgba(16,17,20,.9)';
+    const stat=(l,v,u)=>`<div class="row" style="flex:1;justify-content:center;font-family:RobotoC;font-style:italic;font-weight:700"><span style="font-size:15px;color:rgba(255,255,255,.55);letter-spacing:.12em">${l}</span><span style="font-size:26px;margin-left:12px">${v}</span><span style="font-size:15px;color:${t.accent}">&nbsp;${u}</span></div>`;
+    const tile=(icon,label,attr)=>chamf(18,cb,hair,'',`flex:1;margin-left:10px;cursor:pointer`,`display:flex;flex-direction:column;align-items:center;justify-content:center`,`${icon}<div style="font-family:RobotoC;font-style:italic;font-weight:700;font-size:15px;letter-spacing:.04em;margin-top:10px;text-transform:uppercase;text-align:center;padding:0 4px" class="ell">${label}</div>`,attr);
+    h=`<div class="abs" style="inset:0;background:url(${DATA.carbon});opacity:.96"></div><div class="abs" style="left:0;right:0;top:55%;bottom:0;background:linear-gradient(transparent,${mixC(t.accent,t.accent,0).replace(/[\d.]+\)$/,'0.10)')})"></div>
+     <div class="col" style="position:absolute;inset:0;padding:16px 20px 20px">
+      <div class="row" style="height:400px;flex:none">
+       <div class="sg" data-gps="1" style="cursor:pointer;width:400px;height:400px;flex:none"></div>
+       ${chamf(22,cb,hair,t.accent,'flex:1;height:100%;margin:0 14px;cursor:pointer','display:flex;flex-direction:column;align-items:center;padding:22px 18px 18px',
+         `<div class="src" style="font-size:12px;color:${t.accent}">${mi.src}</div><div style="margin-top:12px">${artBox(150,4,.24)}</div><div class="ell" style="font-family:RobotoC;font-style:italic;font-weight:700;font-size:21px;margin-top:14px;text-transform:uppercase;max-width:100%">${mi.t}</div><div class="ell" style="font-size:15px;color:rgba(255,255,255,.7);margin-top:4px;max-width:100%">${mi.a}</div><div style="flex:1"></div><div style="width:100%;margin-bottom:12px">${prog(3,false,t.accent)}</div>${ctrlsX(52,62,10,26,30)}`,'data-media="1"')}
+       <div class="sgc" style="width:400px;height:400px;flex:none"></div></div>
+      ${chamf(14,cb,hair,'','height:56px;flex:none;margin-top:14px','display:flex;align-items:center;padding:0 26px',stat('ПОЕЗДКА',TRIP.km,'КМ')+stat('В ПУТИ',TRIP.time,'Ч:МИН')+stat('МАКС',TRIP.max,'КМ/Ч')+stat('СРЕДН',TRIP.avg,'КМ/Ч'))}
+      <div class="row" style="flex:1;margin:14px 0 0 -10px;align-items:stretch">${visT().map(i=>tile(tIcon(i,50),TILES[i].t,`data-t="${i}"`)).join('')}${tile(`<div style="width:50px;height:50px;display:flex;align-items:center;justify-content:center">${lineIcon('ic_apps',38,'#fff')}</div>`,'Все','data-all="1"')}</div></div>`;
+  } else if(L==='nordic'){
+    const lt=S.nordicLight,bg=lt?'rgba(233,233,229,.96)':'rgba(27,28,30,.96)',cd=lt?'#FFFFFF':'#2A2B2F',fg=lt?'#1C1C1E':'#FFFFFF',fg2=lt?'#77777C':'#A1A1A6';
+    const vis=visT(),cells=vis.length+1,rows=Math.ceil(cells/2);let grid='';
+    for(let r=0;r<rows;r++){let row='';for(let k=0;k<2;k++){const n=r*2+k,ml=k?'margin-left:14px;':'';
+      if(n>=cells){row+=`<div style="${ml}flex:1"></div>`;continue}
+      if(n<vis.length){const i=vis[n];row+=`<div class="row" data-t="${i}" style="${ml}flex:1;min-width:0;cursor:pointer;padding:0 12px 0 18px;border-radius:24px;background:${cd}">${tIcon(i,48)}<span class="ell" style="font-size:18px;font-weight:500;color:${fg};margin-left:14px">${TILES[i].t}</span></div>`}
+      else row+=`<div class="row" data-all="1" style="${ml}flex:1;cursor:pointer;padding:0 12px 0 18px;border-radius:24px;background:${cd}"><div style="width:48px;height:48px;border-radius:50%;background:${lt?'rgba(28,28,30,.08)':'rgba(255,255,255,.08)'};display:flex;align-items:center;justify-content:center">${lineIcon('ic_apps',24,fg)}</div><span style="font-size:18px;font-weight:500;color:${fg};margin-left:14px">Все</span></div>`}
+      grid+=`<div class="row" style="flex:1;align-items:stretch;${r?'margin-top:14px':''}">${row}</div>`}
+    h=`<div class="abs" style="inset:0;background:${bg}"></div><div class="col" style="position:absolute;inset:0;padding:18px 24px 24px;color:${fg}">
+      <div class="row" style="height:56px;flex:none"><div class="tm" style="font-size:40px;font-weight:300;line-height:1"></div><div class="dtx" style="flex:1;font-size:18px;font-weight:500;color:${fg2};padding:6px 0 0 18px"></div>
+       <div class="row" data-gps="1" style="cursor:pointer;align-items:flex-end"><span class="spd" style="font-size:40px;font-weight:300;line-height:1"></span><span style="font-size:17px;font-weight:500;color:${fg2};padding:0 0 5px 8px">км/ч</span></div>
+       <div style="width:1px;height:30px;background:${lt?'rgba(28,28,30,.15)':'rgba(255,255,255,.15)'};margin:0 20px"></div><div class="row" style="align-items:flex-end"><span style="font-size:24px;font-weight:300;line-height:1">${TRIP.km}</span><span style="font-size:17px;font-weight:500;color:${fg2};padding:0 0 3px 6px">км</span></div></div>
+      <div class="row" style="flex:1;margin-top:14px;align-items:stretch;min-height:0">
+       <div class="col" style="width:634px;flex:none">
+        <div class="row" data-media="1" style="cursor:pointer;height:236px;flex:none;padding:20px 24px 20px 20px;border-radius:28px;background:${cd};align-items:flex-start">${artBox(196,18,.24)}
+         <div class="col" style="flex:1;min-width:0;height:100%;padding:4px 0 0 24px"><div class="src" style="font-size:13px;color:${t.accent}">${mi.src}</div><div style="font-size:26px;font-weight:500;margin-top:10px;line-height:1.05;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${mi.t}</div><div style="font-size:18px;color:${fg2};margin-top:6px">${mi.a}</div>
+          <div style="flex:1"></div><div style="margin-bottom:14px">${prog(3,false,t.accent,lt?'rgba(28,28,30,.2)':'')}</div>${ctrlsX(56,64,14,26,30,{fg:fg,bb:lt?'rgba(28,28,30,.07)':'rgba(255,255,255,.14)',pb:fg,pf:cd})}</div></div>
+        <div style="flex:1;margin-top:16px;position:relative">${mapLayer(634,356,lt,28)}
+         <div class="abs row" data-nav="1" style="cursor:pointer;left:16px;bottom:16px;height:48px;padding:0 20px 0 16px;border-radius:24px;background:${cd}">${lineIcon('ic_nav',24,t.accent)}<span style="font-size:18px;font-weight:500;color:${fg};padding-left:10px">Навигация</span></div></div></div>
+       <div class="col" style="flex:1;margin-left:16px">${grid}</div></div></div>`;
+  }
+  $('#s0').innerHTML=`<div style="position:relative;width:100%;height:100%">${h}</div>`;
+  bindHome();tick();
+  const car=$('#car');if(car){const sc=()=>{const c=car.scrollLeft+car.clientWidth/2;car.querySelectorAll('.ico').forEach(v=>{const d=Math.min(1,Math.abs(v.offsetLeft+v.offsetWidth/2-c)/(car.clientWidth/2));v.style.transform=`scale(${1-.16*d})`;v.style.opacity=1-.25*d})};car.onscroll=sc;sc()}
+}
+function bindHome(){
+  document.querySelectorAll('[data-m]').forEach(e=>e.onclick=ev=>{ev.stopPropagation();const m=e.dataset.m;
+    if(m==='pp'){if(!S.playing){S.playing=true;S.paused=false}else S.paused=!S.paused}
+    else{S.playing=true;S.paused=false;S.track=(S.track+(m==='next'?1:TRACKS.length-1))%TRACKS.length;S.pos=0}
+    $('#mus').checked=S.playing;applyTheme()});
+  document.querySelectorAll('[data-t]').forEach(e=>{e.onclick=ev=>{ev.stopPropagation();toast(TILES[e.dataset.t].missing?'Не установлено — выберите приложение':'Открывает «'+TILES[e.dataset.t].t+'»')};
+    e.oncontextmenu=ev=>{ev.preventDefault();toast('Долгое нажатие — выбрать другое приложение')}});
+  document.querySelectorAll('[data-all]').forEach(e=>e.onclick=()=>{S.screen=1;renderRail();show(1)});
+  document.querySelectorAll('[data-media]').forEach(e=>e.onclick=()=>toast('Открывает плеер'));
+  document.querySelectorAll('[data-nav]').forEach(e=>e.onclick=()=>toast('Открывает Яндекс Навигатор'));
+  document.querySelectorAll('[data-gps]').forEach(e=>e.onclick=()=>toast('GPS: скорость по спутникам'));
+}
+function tickCommon(){const now=new Date();const t=TH();
+  const hh=S.h24?String(now.getHours()).padStart(2,'0'):String(now.getHours()%12||12);const tm=`${hh}:${String(now.getMinutes()).padStart(2,'0')}`;
+  document.querySelectorAll('.tm').forEach(e=>e.textContent=tm);
+  let d=now.toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});d=d.charAt(0).toUpperCase()+d.slice(1);document.querySelectorAll('.dtx').forEach(e=>e.textContent=d);
+  const wk=(()=>{const x=new Date(Date.UTC(now.getFullYear(),now.getMonth(),now.getDate()));const n=x.getUTCDay()||7;x.setUTCDate(x.getUTCDate()+4-n);const y=new Date(Date.UTC(x.getUTCFullYear(),0,1));return Math.ceil(((x-y)/864e5+1)/7)})();
+  document.querySelectorAll('.wkx').forEach(e=>e.textContent='НЕДЕЛЯ '+wk);
+  const wd=$('.wday');if(wd){wd.textContent=now.toLocaleDateString('ru-RU',{weekday:'long'}).toUpperCase();$('.dnum').textContent=now.getDate();let m=now.toLocaleDateString('ru-RU',{month:'long'});
+    const nom={'января':'январь','февраля':'февраль','марта':'март','апреля':'апрель','мая':'май','июня':'июнь','июля':'июль','августа':'август','сентября':'сентябрь','октября':'октябрь','ноября':'ноябрь','декабря':'декабрь'};m=nom[m]||m;$('.mon').textContent=m.charAt(0).toUpperCase()+m.slice(1)+' '+now.getFullYear()}
+  const g=$('#gauge');if(g)g.innerHTML=gaugeSVG(544,S.speed,t.accent);
+  const lx=$('.lux');if(lx)lx.innerHTML=luxSVG(430,S.speed,t.accent);
+  const sg=$('.sg');if(sg)sg.innerHTML=sportSVG(400,S.speed,t.accent,false,S.speed);
+  const sc=$('.sgc');if(sc){const dd=now.toLocaleDateString('ru-RU',{weekday:'short'}).toUpperCase().replace('.','')+' '+now.getDate()+'.'+String(now.getMonth()+1).padStart(2,'0');sc.innerHTML=sportSVG(400,now.getHours()*60+now.getMinutes(),t.accent,true,tm,dd)}
+  document.querySelectorAll('.ring').forEach(e=>e.innerHTML=ringSVG(+e.dataset.w,+e.dataset.h,S.speed,e.dataset.acc||t.accent,e.dataset.fg||'#fff',e.dataset.bg||'',+e.dataset.num,!!e.dataset.cap));
+  document.querySelectorAll('.spd').forEach(e=>e.textContent=S.speed);
+  const sb=$('#sbar');if(sb)sb.style.width=Math.min(100,S.speed/2)+'%';
+  const ac=$('#aclock');if(ac)ac.innerHTML=clockSVG(180,t.accent);
+  const tr=TRACKS[S.track];document.querySelectorAll('.pf').forEach(e=>e.style.width=(S.pos/tr.d*100)+'%');
+  document.querySelectorAll('.pos').forEach(e=>e.textContent=fmt(S.pos));document.querySelectorAll('.rem').forEach(e=>e.textContent='−'+fmt(tr.d-S.pos));
+}
+function drawLayoutThumb(cv,layout,t){const c=cv.getContext('2d');const w=cv.width,h=cv.height;const im=img(DATA.walls[t.wall]);
+  const go=()=>{c.clearRect(0,0,w,h);const s=Math.max(w/im.width,h/im.height);c.drawImage(im,(w-im.width*s)/2,(h-im.height*s)/2,im.width*s,im.height*s);
+   const k=w/1168,rad=t.radius*k;const gl=t.glass?t.tint.replace(/[\d.]+\)$/,'0.63)'):t.tint;
+   const card=(l,tp,r,b,col=gl,rr=rad)=>{c.fillStyle=col;c.beginPath();c.roundRect(l*k,tp*k,(r-l)*k,(b-tp)*k,rr);c.fill()};
+   const circ=(x,y,r,col)=>{c.fillStyle=col;c.beginPath();c.arc(x*k,y*k,r*k,0,7);c.fill()};
+   const ring=(x,y,r,sw,col)=>{c.strokeStyle=col;c.lineWidth=sw*k;c.beginPath();c.arc(x*k,y*k,r*k,0,7);c.stroke()};
+   const text=(s,x,y,sz)=>{c.fillStyle=t.clockFg;c.font=`${t.font==='thin'?100:t.font==='light'?300:700} ${sz*k}px ${t.font==='condensed'?'RobotoC':'RobotoV'}`;c.fillText(s,x*k,y*k)};
+   const ic=['#0A6CFF','#FF7A00','#1DB954','#3A3A3C','#FFCC00','#E0162B','#B02BE8','#0A84FF'];
+   if(layout==='cockpit'){circ(292,292,272,'rgba(0,0,0,.69)');ring(292,292,246,14,t.accent);text('21:47',588,110,96);card(588,160,1148,380);card(604,176,790,364,t.accent,14*k);
+     for(let i=0;i<3;i++)card(588+i*192,400,764+i*192,544);card(20,560,1148,700,gl,30*k);for(let i=0;i<8;i++)card(80+i*136,584,150+i*136,654,ic[i],16*k)}
+   else if(layout==='map'){c.fillStyle='#1C1F26';c.beginPath();c.roundRect(16*k,16*k,w-32*k,h-32*k,rad);c.fill();c.strokeStyle='#2E333D';c.lineWidth=10*k;
+     for(let i=0;i<7;i++){c.beginPath();c.moveTo((60+i*170)*k,16*k);c.lineTo((i*170-140)*k,h-16*k);c.stroke()}for(let i=0;i<4;i++){c.beginPath();c.moveTo(16*k,(90+i*170)*k);c.lineTo(w-16*k,(40+i*170)*k);c.stroke()}
+     circ(560,396,30,t.accent.replace(/[\d.]+\)$/,'0.3)'));circ(560,396,14,t.accent);card(32,32,330,150);text('21:47',52,116,70);circ(108,250,80,'rgba(0,0,0,.69)');ring(108,250,66,10,t.accent);
+     card(32,584,640,688,gl,52*k);circ(84,636,40,t.accent);card(1040,40,1136,680,gl,30*k);for(let i=0;i<8;i++)card(1060,64+i*76,1116,120+i*76,ic[i],14*k)}
+   else if(layout==='media'){card(20,20,534,534,t.accent,rad*1.2);text('21:47',566,70,40);card(566,200,1040,250,'rgba(255,255,255,.9)',6*k);card(566,270,880,300,'rgba(255,255,255,.6)',6*k);
+     circ(626,470,48,'rgba(255,255,255,.25)');circ(756,470,62,t.accent);circ(886,470,48,'rgba(255,255,255,.25)');for(let i=0;i<8;i++)circ(88+i*136,628,i>=2&&i<=5?50:42,ic[i])}
+   else if(layout==='minimal'){c.fillStyle='#1C1F26';c.fillRect(360*k,0,w-360*k,640*k);c.strokeStyle='#2E333D';c.lineWidth=10*k;
+     for(let i=0;i<5;i++){c.beginPath();c.moveTo((420+i*170)*k,0);c.lineTo((300+i*170)*k,640*k);c.stroke()}for(let i=0;i<3;i++){c.beginPath();c.moveTo(360*k,(120+i*200)*k);c.lineTo(w,(60+i*200)*k);c.stroke()}
+     card(0,0,360,640,'#121316',0);text('62',110,200,120);card(130,260,230,520,'#40444C',40*k);card(146,320,214,380,'#0C0D10',10*k);card(380,20,710,76,'rgba(242,242,244,.94)',14*k);
+     card(380,516,880,620,'rgba(20,21,24,.94)',14*k);card(392,528,472,608,t.accent,8*k);card(0,640,w/k,720,'#08080A',0);for(let i=0;i<8;i++)card(250+i*94,655,300+i*94,705,ic[i],12*k)}
+   else if(layout==='smart'){card(20,20,702,700,mixC('rgba(20,26,58,1)',t.accent,.55),32*k);text('21:47',52,150,84);card(130,380,600,560,'#D5DAE3',80*k);card(260,400,470,450,'#1A2333',30*k);
+     circ(220,560,40,'#0B0C0F');circ(520,560,40,'#0B0C0F');ring(610,100,60,10,t.accent);card(718,20,1148,316,'#B02BE8',32*k);for(let i=0;i<8;i++)card(718+(i%4)*110,332+Math.floor(i/4)*190,816+(i%4)*110,510+Math.floor(i/4)*190,ic[i],24*k)}
+   else if(layout==='premium'){card(0,0,w/k,720,'rgba(5,6,8,.94)',0);c.strokeStyle=t.accent;c.lineWidth=4*k;c.beginPath();c.moveTo(0,600*k);c.lineTo(w,560*k);c.stroke();
+     circ(239,360,210,'#0B0D12');ring(239,360,205,9,'#B8BEC8');ring(239,360,180,5,t.accent);text('21:47',500,130,80);ring(645,320,92,3,t.accent);circ(645,320,84,'#3A3F4A');for(let i=0;i<9;i++)card(894,60+i*68,1144,118+i*68,'rgba(255,255,255,.19)',29*k)}
+   else if(layout==='sport'){card(0,0,w/k,720,'#141518',0);circ(220,216,196,'#0A0A0B');ring(220,216,176,22,t.accent);circ(948,216,196,'#0A0A0B');ring(948,216,176,22,'#3A3B40');
+     card(434,16,734,416,'#101114',0);card(509,60,659,210,t.accent,0);card(20,430,1148,486,'#101114',0);for(let i=0;i<9;i++)card(20+i*126,500,136+i*126,700,'#101114',0)}
+   else if(layout==='nordic'){card(0,0,w/k,720,'#E9E9E5',0);c.fillStyle='#1C1C1E';c.font=`300 ${40*k}px RobotoV`;c.fillText('21:47',24*k,64*k);card(24,88,656,324,'#FFFFFF',28*k);card(44,108,240,304,t.accent,18*k);
+     card(24,340,656,696,'#1C1F26',28*k);for(let i=0;i<10;i++)card(672+(i%2)*245,88+Math.floor(i/2)*124,902+(i%2)*245,200+Math.floor(i/2)*124,'#FFFFFF',24*k);for(let i=0;i<9;i++)circ(712+(i%2)*245,144+Math.floor(i/2)*124,24,ic[i%8])}
+   else if(layout==='arc'){text('21:47',24,160,150);card(860,60,1140,130,'rgba(255,255,255,.9)',8*k);for(let i=0;i<8;i++){const f=i/7,d=(f-.5)*2;circ(84+f*1000,300+80*d*d,52,ic[i])}card(24,584,1144,696,gl,56*k);circ(80,640,44,t.accent)}
+   else if(layout==='widgets'){const cw=270,ch=216,g=16;const cell=(cc,r,cs,rs,col=gl)=>card(20+cc*(cw+g),20+r*(ch+g),20+cc*(cw+g)+cs*cw+(cs-1)*g,20+r*(ch+g)+rs*ch+(rs-1)*g,col);
+     cell(0,0,2,2,t.speedBg||gl);ring(298,252,170,22,t.accent);cell(2,0,2,1);card(588,36,772,220,t.accent,14*k);cell(2,1,1,1,t.clockBg||gl);cell(3,1,1,1);ring(1009,340,80,6,'rgba(255,255,255,.5)');
+     cell(0,2,1,1);cell(1,2,1,1);ring(441,572,80,6,'rgba(255,255,255,.5)');cell(2,2,2,1);for(let i=0;i<8;i++)card(610+(i%4)*134,482+Math.floor(i/4)*96,674+(i%4)*134,546+Math.floor(i/4)*96,ic[i],14*k)}
+   else{card(20,20,340,484,t.clockBg||gl);card(20,500,340,700,t.speedBg||gl);card(356,20,1148,444);circ(840,300,30,t.accent);const tw=(1148-356-48)/4;
+     for(let r=0;r<2;r++)for(let i=0;i<4;i++){const x=356+i*(tw+16),y=460+r*128;card(x,y,x+tw,y+112,t.blocks?ic[r*4+i]:gl)}text('21:47',44,130,96)}};
+  if(im.complete)go();else im.onload=go}
+function setLayout(id){S.layout=id;try{localStorage.cl_layout=id}catch(e){};applyTheme()}
+
+// ---- apps ----
+function renderApps(){
+  $('#s1').innerHTML=`<div class="pad"><div style="display:flex;align-items:center"><div class="card search" style="flex:1">${lineIcon('ic_search',32,'#8E8E93')}<input id="q" placeholder="Поиск приложений" value="${S.q}"><span style="color:#8E8E93;font-size:22px;cursor:pointer;padding:0 6px" id="qx">✕</span></div><div id="cnt" style="width:150px;text-align:center;color:#8E8E93;font-size:20px"></div></div><div class="agrid" id="ag"></div></div>`;
+  const draw=()=>{const q=S.q.toLowerCase();const l=APPS.filter(a=>a[0].toLowerCase().includes(q)).sort((a,b)=>a[0].localeCompare(b[0],'ru'));
+    $('#ag').innerHTML=l.map(a=>`<div class="acell card press" onclick="toast('Открывает «${a[0]}»')">${appIcon(a[1],76)}<div class="al">${a[0]}</div></div>`).join('');$('#cnt').textContent=l.length+' прил.'};
+  $('#q').oninput=e=>{S.q=e.target.value;draw()};$('#qx').onclick=()=>{S.q='';$('#q').value='';draw()};draw();
+}
+// ---- DVR ----
+function dvrThumb(i){const hues=[[30,60,90],[18,28,40],[60,50,40],[20,40,60]];const h=hues[i%4];
+  return `url('data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='192' height='108'><rect width='192' height='108' fill='rgb(${h[0]+40},${h[1]+60},${h[2]+90})'/><rect y='54' width='192' height='54' fill='rgb(${h[0]},${h[1]},${h[2]})'/><path d='M80 54 L112 54 L170 108 L22 108Z' fill='#2a2a2e'/><path d='M95 60h2v10h-2zM95 78h2v14h-2z' fill='#ffd60a'/></svg>`).replace(/'/g,'%27').replace(/\(/g,'%28').replace(/\)/g,'%29')}')`}
+function renderDvr(){
+  const days=[['Сегодня',[['18:42:10','4,1'],['18:39:05','4,0'],['18:36:00','4,0'],['09:12:33','3,9']]],['Вчера',[['21:05:47','4,0'],['20:58:12','4,1']]],['9 ноября, понедельник',[['14:20:00','3,8'],['14:17:00','4,0']]]];
+  const chips=['Все дни','Сегодня','Вчера','9 нояб.'];let n=0;
+  const list=days.filter((d,i)=>S.day==null||S.day===i).map(([lbl,files])=>`<div class="dhd">${lbl}   ·   ${files.length} файл.   ·   ${(files.length*0.24).toFixed(1).replace('.',',')} ГБ</div>`+
+    files.map(([tm,sz])=>`<div class="drow card press" onclick="toast('Открывает видео в плеере')"><div class="dthumb" style="background-image:${dvrThumb(n++)}"></div><div style="margin-left:24px"><div class="dt">${tm}</div><div class="dn">NOR_${tm.replace(/:/g,'')}.mp4  ·  Normal</div></div><div class="dsz">${sz.replace(',','')}0 МБ</div><div style="margin-left:20px">${lineIcon('ic_play',40,TH().accent)}</div></div>`).join('')).join('');
+  $('#s2').innerHTML=`<div class="pad"><div class="dh"><div style="flex:1"><h2>Записи регистратора</h2><div class="dst">8 записей · 1,9 ГБ · нажмите, чтобы открыть</div></div><div class="vb" style="margin:0;width:76px;height:76px" onclick="toast('Поиск записей…')">${lineIcon('ic_refresh',34,'#fff')}</div></div>
+   <div class="chips">${chips.map((c,i)=>`<div class="chip ${(S.day==null&&i===0)||(S.day===i-1)?'sel':''}" data-d="${i-1}">${c}</div>`).join('')}</div><div class="dlist">${list}</div></div>`;
+  document.querySelectorAll('[data-d]').forEach(e=>e.onclick=()=>{const v=+e.dataset.d;S.day=v<0?null:v;renderDvr()});
+}
+// ---- settings ----
+function sw(on,key){return `<div class="sw" data-sw="${key}" style="background:${on?TH().accent:'#3A3A3C'};justify-content:${on?'flex-end':'flex-start'}"><i></i></div>`}
+function srow(icon,title,sub,right,clk){return `<div class="srow ${clk?'clk':''}" ${clk?`onclick="${clk}"`:''}><div class="sic">${lineIcon(icon,30,TH().accent)}</div><div style="flex:1;min-width:0"><div class="stt">${title}</div>${sub?`<div class="ssb">${sub}</div>`:''}</div>${right||''}</div>`}
+function renderSettings(){
+  const t=TH();
+  const thumbs=DATA.themes.map(x=>`<div class="th ${x.id===t.id?'sel':''}" data-th="${x.id}"><div class="thf" style="border-color:${x.id===t.id?x.accent:'transparent'}"><canvas width="416" height="248" data-tc="${x.id}" data-lay="${S.layout}"></canvas></div><div class="thn">${x.name}</div></div>`).join('');
+  const lthumbsOf=br=>LAYOUTS.filter(x=>!!x[3]===br).map(([id,n,d])=>`<div class="th ${id===S.layout?'sel':''}" data-ly="${id}"><div class="thf" style="border-color:${id===S.layout?t.accent:'transparent'}"><canvas width="416" height="248" data-tc="${t.id}" data-lay="${id}"></canvas></div><div class="thn">${n}</div><div class="thd">${d}</div></div>`).join('');
+  const lthumbs=lthumbsOf(false),bthumbs=lthumbsOf(true);
+  const wps=[['theme','Как в теме',DATA.walls[t.wall]],...DATA.wallNames.map(([k,n])=>[k,n,DATA.walls[k]]),['custom',S.custom?'Своё фото':'Загрузить фото',S.custom]];
+  const wpHtml=wps.map(([k,n,src])=>`<div class="wp ${S.wall===k?'sel':''}" data-wp="${k}"><div class="wpf" style="border-color:${S.wall===k?t.accent:'transparent'}"><div style="${src?`background-image:url(${src})`:''}">${src?'':lineIcon('ic_add',40,'#fff')}</div></div><div class="wpn">${n}</div></div>`).join('');
+  const tileRows=TILES.map((d,i)=>srow({tile_nav:'ic_nav',tile_radio:'ic_radio',tile_phone:'ic_phone',tile_camera:'ic_videocam',tile_music:'ic_music',tile_video:'ic_youtube',tile_headphones:'ic_headphones',tile_files:'ic_folder'}[d.art],d.t,
+     d.missing?'не установлено — нажмите, чтобы выбрать приложение':({ynavi:'Яндекс Навигатор · ru.yandex.yandexnavi',ymusic:'Яндекс Музыка · ru.yandex.music',youtube:'YouTube · com.google.android.youtube',tc:'Total Commander · com.ghisler.android.TotalCommander'}[d.real]||['','Радио · com.syu.radio','Bluetooth · com.syu.bt','DVR · com.syu.dvr'][i]),sw(S.tiles[i],'tile'+i))).join('');
+  $('#s3').innerHTML=`<div class="sset">
+   <div class="sh">Раскладка главного экрана</div><div class="card scard"><div class="strip">${lthumbs}</div></div>
+   <div class="sh">Раскладки по мотивам автомобилей</div><div class="card scard"><div class="strip">${bthumbs}</div>${srow('ic_home','Скандинавский: светлый фон','Выключено — графитовый вариант',sw(S.nordicLight,'nordic'))}</div>
+   <div class="sh">Тема: цвета и обои</div><div class="card scard"><div class="strip">${thumbs}</div></div>
+   <div class="sh">Обои</div><div class="card scard"><div class="strip">${wpHtml}</div>${srow('ic_music','Обложка трека как фон','Пока играет музыка, фоном становится размытая обложка',sw(S.cover,'cover'))}</div>
+   <div class="sh">Плитки на главном экране</div><div class="card scard">${tileRows}</div>
+   <div class="sh">Виджеты и вид</div><div class="card scard">${srow('ic_speed','Спидометр (GPS)','Скорость по спутникам на главном экране',sw(S.showSpeed,'speed'))}${srow('ic_home','24-часовой формат','Иначе 12-часовой',sw(S.h24,'h24'))}</div>
+   <div class="sh">Вернуть штатный экран</div><div class="card scard">${srow('ic_home','Выбрать главный экран','Откроется системный выбор «Главный экран» — выберите штатный лаунчер','',"toast('Открывает системный выбор главного экрана')")}
+    ${srow('ic_apps','Открыть «Launcher»','com.syu.launcher — штатный/другой главный экран (пример)','',"toast('Открывает штатный экран магнитолы')")}
+    ${srow('ic_refresh','Сбросить «по умолчанию»','Страница Car Launcher → «Открывать по умолчанию» → «Очистить». После этого кнопка «Домой» снова спросит, какой экран открыть','',"toast('Открывает сведения о приложении')")}</div>
+   <div class="sh">Система</div><div class="card scard">${srow('ic_home','Сделать главным экраном','Выберите Car Launcher как приложение «Главный экран»','',"toast('Открывает выбор главного экрана')")}
+    ${srow('ic_music','Доступ к музыке','Разрешите Car Launcher доступ к уведомлениям — для обложки и кнопок плеера','',"toast('Открывает доступ к уведомлениям')")}
+    ${srow('ic_apps','Список пакетов (FYT)','Найти точные имена штатных приложений, нажмите — скопировать','',"toast('Список пакетов')")}</div>
+   <div style="text-align:center;color:#636366;font-size:17px;margin-top:28px">Car Launcher 1.4 · долгое нажатие на плитку — сменить приложение</div></div>`;
+  document.querySelectorAll('[data-th]').forEach(e=>e.onclick=()=>setTheme(e.dataset.th));
+  document.querySelectorAll('[data-ly]').forEach(e=>e.onclick=()=>setLayout(e.dataset.ly));
+  document.querySelectorAll('[data-wp]').forEach(e=>e.onclick=()=>{const k=e.dataset.wp;if(k==='custom'&&!S.custom){$('#file').click();return}S.wall=k;applyTheme()});
+  document.querySelectorAll('[data-sw]').forEach(e=>e.onclick=()=>{const k=e.dataset.sw;
+    if(k==='cover'){S.cover=!S.cover;$('#cov').checked=S.cover}else if(k==='nordic')S.nordicLight=!S.nordicLight;else if(k==='speed')S.showSpeed=!S.showSpeed;else if(k==='h24')S.h24=!S.h24;else{const i=+k.slice(4);S.tiles[i]=S.tiles[i]?0:1}
+    const y=$('.sset').scrollTop;applyTheme();$('.sset').scrollTop=y});
+  document.querySelectorAll('[data-tc]').forEach(drawThumb);
+}
+const imgCache={};function img(src){if(!imgCache[src]){const i=new Image();i.src=src;imgCache[src]=i}return imgCache[src]}
+function drawThumb(cv){const t=DATA.themes.find(x=>x.id===cv.dataset.tc);if(cv.dataset.lay){drawLayoutThumb(cv,cv.dataset.lay,t);return}const c=cv.getContext('2d');const w=cv.width,h=cv.height;
+  const im=img(DATA.walls[t.wall]);const go=()=>{c.clearRect(0,0,w,h);const s=Math.max(w/im.width,h/im.height);c.drawImage(im,(w-im.width*s)/2,(h-im.height*s)/2,im.width*s,im.height*s);
+   const k=w/1168,g=16*k,pad=20*k,rad=t.radius*k;const rr=(x,y,ww,hh,col)=>{c.fillStyle=col;c.beginPath();c.roundRect(x,y,ww,hh,rad);c.fill()};
+   const gl=t.glass?t.tint.replace(/[\d.]+\)$/,'0.63)'):t.tint;const lr=pad+320*k,bot=h-pad;
+   rr(pad,pad,320*k,bot-200*k-g-pad,t.clockBg||gl);rr(pad,bot-200*k,320*k,200*k,t.speedBg||gl);
+   const rx=lr+g,tt=bot-240*k;rr(rx,pad,w-pad-rx,tt-g-pad,t.glass?gl:'#141416');c.fillStyle=t.accent;c.beginPath();c.arc(rx+(w-pad-rx)*.62,(pad+tt-g)*.72,30*k,0,7);c.fill();
+   const cols=['#0A6CFF','#FF7A00','#1DB954','#2C2C2E','#FF2D55','#E0162B','#B02BE8','#0A84FF'];
+   for(let r=0;r<2;r++){let x=rx;for(let i=0;i<4;i++){const wide=t.bento&&r===0&&i===0;const ww=t.bento&&r===0?(w-pad-rx-3*g)/5*(wide?2:1):(w-pad-rx-3*g)/4;const y=tt+r*(112*k+g);rr(x,y,ww,112*k,t.blocks?cols[r*4+i]:gl);x+=ww+g}}
+   c.fillStyle=t.clockFg;c.font=`${t.font==='thin'?100:t.font==='light'?300:700} ${52*k*2}px ${t.font==='condensed'?'RobotoC':'RobotoV'}`;c.fillText('21:47',pad+24*k,pad+110*k)};
+  if(im.complete)go();else im.onload=go}
+function setTheme(id){S.theme=id;try{localStorage.cl_theme=id}catch(e){};if(S.wall!=='custom')S.wall='theme';applyTheme()}
+// ---- chrome (outside the device) ----
+function renderChrome(){
+  $('#lthumbs').innerHTML=LAYOUTS.map(([id,n,d,b,sh])=>`<div class="lt ${id===S.layout?'sel':''}" data-ly2="${id}"><canvas width="168" height="96" data-tc="${S.theme}" data-lay="${id}" style="border-color:${id===S.layout?TH().accent:'transparent'}"></canvas><span>${sh||n}</span></div>`).join('');
+  document.querySelectorAll('[data-ly2]').forEach(e=>e.onclick=()=>setLayout(e.dataset.ly2));
+  document.querySelectorAll('#lthumbs canvas').forEach(drawThumb);
+  $('#tthumbs').innerHTML=DATA.themes.map(x=>`<div class="tt ${x.id===S.theme?'sel':''}" style="--c:${x.accent};background-image:url(${DATA.walls[x.wall]})" data-th2="${x.id}"><span>${x.name}</span></div>`).join('');
+  document.querySelectorAll('[data-th2]').forEach(e=>e.onclick=()=>setTheme(e.dataset.th2));
+  $('#wsel').innerHTML=[['theme','Как в теме'],...DATA.wallNames,...(S.custom?[['custom','Своё фото']]:[])].map(([k,n])=>`<option value="${k}" ${S.wall===k?'selected':''}>${n}</option>`).join('');
+  $('#cov').checked=S.cover;$('#mus').checked=S.playing;
+}
+$('#wsel').onchange=e=>{S.wall=e.target.value;applyTheme()};
+$('#cov').onchange=e=>{S.cover=e.target.checked;applyTheme()};
+$('#mus').onchange=e=>{S.playing=e.target.checked;S.paused=false;applyTheme()};
+$('#file').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{S.custom=r.result;S.wall='custom';applyTheme();toast('Обои обновлены (только в этом окне)')};r.readAsDataURL(f)};
+function fit(){const v=$('#viewport');const s=document.body.classList.contains('bare')?1:Math.min((v.clientWidth-40)/1280,(v.clientHeight-40)/720);$('#stage').style.transform=`scale(${s})`}
+addEventListener('resize',fit);
+document.fonts.ready.then(()=>{fitClock();document.querySelectorAll('[data-tc]').forEach(drawThumb)});
+if(P.get('time')){const[hh,mm]=P.get('time').split(':');const RD=Date;window.Date=class extends RD{constructor(...a){if(a.length)super(...a);else{super();this.setHours(+hh,+mm,0)}}static now(){return new RD().setHours(+hh,+mm,0)}}}
+applyTheme();fit();
+</script></body></html>

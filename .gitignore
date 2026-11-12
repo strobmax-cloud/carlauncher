@@ -1,0 +1,27 @@
+# build outputs
+build/
+.gradle/
+*/build/
+local.properties
+.idea/
+*.iml
+# signing — NEVER commit
+keystore/
+*.jks
+*.keystore
+signing.properties
+# release binaries go to GitHub Releases, not git
+*.apk
+*.aab
+# large generated previews / third-party screenshots
+preview/
+yt-alts/
+CarLauncher-preview.html
+layouts-grid*.png
+preview-*.png
+themes-grid.png
+closeup-*.png
+features-v16*.png
+
+# third-party reference photos
+tools/car-art/ref-photo*

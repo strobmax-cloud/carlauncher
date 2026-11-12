@@ -1,0 +1,118 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Car Launcher 1.7.0 — симулятор (Suzuki SX4 S-Cross)</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0b0c0f;color:#e8e9ec;font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{padding:14px 20px;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}h1{font-size:20px;margin:0}header span{color:#8e939c}
+main{display:flex;align-items:flex-start;gap:18px;padding:0 20px 24px;flex-wrap:wrap}
+#dev{position:relative;flex:1 1 820px;max-width:1280px;aspect-ratio:16/9;border-radius:18px;overflow:hidden;background:#000;box-shadow:0 0 0 10px #1b1d22,0 0 0 12px #3a3d44,0 20px 60px #000}
+#scr{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;user-select:none}
+#tall{position:absolute;left:8.75%;top:0;right:0;bottom:0;overflow-y:auto;display:none;background:#101014}#tall img{width:100%;display:block}
+.hot{position:absolute;left:0;width:8.75%;cursor:pointer}.hot:hover{background:rgba(255,255,255,.06)}
+#glow{position:absolute;left:8.75%;right:0;top:0;bottom:0;pointer-events:none;opacity:0;transition:opacity .4s}
+#glow.on{opacity:1}#glow::before,#glow::after{content:"";position:absolute;left:0;right:0;height:7.8%;animation:br 7s ease-in-out infinite}
+#glow::after{bottom:0;background:linear-gradient(to top,var(--ac),transparent)}#glow::before{top:0;height:3.9%;background:linear-gradient(to bottom,var(--ac),transparent)}
+#glow.music::before,#glow.music::after{animation:mu 2.4s ease-in-out infinite}
+@keyframes br{0%,100%{opacity:.18}50%{opacity:.42}}@keyframes mu{0%{opacity:.25}20%{opacity:.5}35%{opacity:.32}60%{opacity:.55}80%{opacity:.3}100%{opacity:.25}}
+.ov{position:absolute;inset:0;display:none}.ov img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#split{display:none;position:absolute;left:8.75%;right:0;top:0;bottom:0;background:#0d1016}
+#split .l,#split .r{position:absolute;top:0;bottom:0;overflow:hidden}#split .l{left:0;width:58%;border-right:3px solid #000}#split .r{right:0;width:42%}
+#split .l svg{width:100%;height:100%}#split .r img{position:absolute;height:100%;left:-38%}
+.tag{position:absolute;left:10px;top:10px;background:rgba(0,0,0,.7);padding:6px 10px;border-radius:10px;font-size:13px}
+aside{flex:0 1 380px;min-width:300px}
+.sec{background:#15171c;border-radius:14px;padding:12px 14px;margin-bottom:12px}.sec h3{margin:0 0 8px;font-size:13px;letter-spacing:.08em;color:#8e939c;text-transform:uppercase}
+.chips{display:flex;flex-wrap:wrap;gap:6px}.chip{background:#23262d;border:0;color:#e8e9ec;padding:7px 11px;border-radius:999px;cursor:pointer;font:inherit;font-size:13.5px}
+.chip.sel{background:#0a84ff;color:#fff}.chip.new::after{content:" NEW";font-size:10px;color:#ffd60a;font-weight:700}
+.desc{color:#a3a8b2;font-size:13.5px;margin-top:8px}.tg{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0}
+.tg input{width:20px;height:20px}small{color:#8e939c}
+</style></head><body>
+<header><h1>Car Launcher 1.7.0</h1><span>симулятор из настоящих кадров приложения · 1280×720 · Suzuki SX4 S-Cross 2013 · магнитола TEYES (FYT, UMS512)</span></header>
+<main>
+<div id="dev">
+ <img id="scr" alt="">
+ <div id="tall"><img id="tallimg" alt=""></div>
+ <div id="split"><div class="l"><svg viewBox="0 0 700 720" preserveAspectRatio="xMidYMid slice"><rect width="700" height="720" fill="#e8ecef"/>
+   <g stroke="#fff" stroke-width="26" fill="none"><path d="M-20 520 C200 480 300 380 420 300 S620 120 760 80"/><path d="M120 -20 L220 760"/><path d="M-20 200 L760 260"/></g>
+   <g stroke="#cfd6dc" stroke-width="10" fill="none"><path d="M-20 640 L760 600"/><path d="M480 -20 L560 760"/></g>
+   <path d="M220 760 L200 600 C190 520 300 420 420 300" stroke="#1e88ff" stroke-width="12" fill="none" stroke-linecap="round"/>
+   <circle cx="205" cy="640" r="16" fill="#1e88ff" stroke="#fff" stroke-width="5"/>
+   <rect x="20" y="20" width="300" height="92" rx="16" fill="#1a7f37"/><text x="40" y="62" fill="#fff" font-size="30" font-weight="700">↱ 350 м</text><text x="40" y="96" fill="#d7f5df" font-size="20">ул. Абая</text>
+   <text x="350" y="700" fill="#9aa3ad" font-size="16" text-anchor="middle">здесь работает сам 2ГИС / Яндекс Навигатор</text></svg></div>
+  <div class="r"><img id="splitimg" alt=""></div><div class="tag">Навигатор «Рядом»: экран делится, если прошивка умеет; иначе — мини-плеер поверх</div></div>
+ <div class="ov" id="ovmini"><img id="miniimg" alt=""><div class="tag">Мини-плеер поверх навигатора: перетаскивается, нажатие на обложку — свернуть в кружок</div></div>
+ <div class="ov" id="ovup" style="background:rgba(0,0,0,.6)"><img id="upimg" alt="" style="object-fit:contain"></div>
+ <div id="glow"></div>
+ <div id="hots"></div>
+</div>
+<aside>
+ <div class="sec"><h3>Экран</h3><div class="chips" id="screens"></div></div>
+ <div class="sec" id="laysec"><h3>Раскладка главного экрана</h3><div class="chips" id="lays"></div><div class="desc" id="ldesc"></div>
+   <h3 style="margin-top:12px">Вариант</h3><div class="chips" id="vars"></div></div>
+ <div class="sec" id="newsec" style="display:none"><h3>Новое в 1.7.0</h3><div class="chips" id="nvars"></div><div class="desc" id="ndesc"></div></div>
+ <div class="sec" id="mediasec" style="display:none"><h3>Флешка / Медиа</h3><div class="chips" id="mvars"></div>
+   <div class="desc">Видео открываются в VLC с того места, где вы остановились (позиция сохраняется для каждого файла). Сверху — «Продолжить просмотр», у каждого файла — полоска просмотренного. Долгое нажатие — с начала.</div></div>
+ <div class="sec"><h3>Функции</h3>
+  <label class="tg">Мягкая подсветка под музыку <input type="checkbox" id="tglow"></label>
+  <label class="tg"><small>— без доступа к звуку: медленное «дыхание»</small><input type="checkbox" id="tbreath"></label>
+  <label class="tg">Мини-плеер поверх навигатора <input type="checkbox" id="tmini"></label>
+  <label class="tg">Навигатор в режиме «Рядом» (если прошивка умеет) <input type="checkbox" id="tsplit"></label>
+  <label class="tg">Загрузка обоев с телефона (QR) <input type="checkbox" id="tup"></label>
+ </div>
+ <div class="sec"><h3>Столбики под музыку · живое демо</h3><canvas id="bars" width="320" height="320" style="width:100%;max-width:320px;border-radius:22px;display:block;margin:auto"></canvas>
+   <div class="desc">Так «Столбики» двигаются в обложке на магнитоле: 28 тонких полос цвета подсветки, мягкое свечение, отражение, плавный подъём и спад, до 30 кадров/с. Работают только пока играет музыка. Здесь — имитация звука.</div></div>
+ <div class="sec"><h3>Госномер на машине</h3><img id="plateimg" alt="" style="width:100%;border-radius:6px;background:#fff"><div class="desc">Пример: <b>777 ABC 01</b> — это просто образец. Свой номер: Настройки → «Машина на экране» → «Госномер».</div></div>
+ <div class="sec"><h3>Что важно</h3><div class="desc">• 1.7.0: музыка следит за ВСЕМИ плеерами и берёт тот, что запущен последним и играет (телефон по Bluetooth — «Телефон», радио магнитолы — «Радио», ⏮ ⏭ = станции; плеер на паузе кнопки не перехватывает); один пункт «Навигатор»; кнопки громкости всегда видны — по умолчанию с ОБЕИХ сторон (слева водителю, справа пассажиру); меню можно поставить слева, справа или снизу (док как на Mac) и настроить; кнопка Wi-Fi; цвет акцента; плитка «Камера»; свободное место на флешке/памяти и красный значок «Мало места»; обновления через GitHub. Настройки больше не прыгают наверх.<br>• 1.6.3: дорога с машиной сама переключается день/ночь по восходу и закату в Астане (интерфейс остаётся как вы выбрали); ваш госномер на машине; «Подсветка под музыку: Выкл / Мягкое свечение / Столбики». Номер 777 ABC 01 на картинках — пример.<br>• 1.6.2: ваш SX4 теперь показан сзади — едет по дороге к горизонту (Минимал, Смарт, Приборка, Витрина); обложки альбомов со скруглёнными углами и мягкой тенью, в «Радиале» — круглая.<br>• 1.6.1: у каждой раскладки есть дневной вид (вариант «День · играет»); на магнитоле — кнопка ☀/☾ и стрелки ‹ › для смены раскладки в боковом меню. Новая «Премиум Гранд». «Скандинавский» убран.<br>• Нажимайте на боковое меню прямо на экране.<br>• Новые раскладки (NEW): «Приборка», «Хронограф», «Радиал», «Витрина» — день/ночь и свой цвет подсветки.<br>• Статистики поездки больше нет; спидометр — по GPS (без сигнала «—»).<br>• Нет OBD/оборотов/топлива и встроенной карты — только то, что реально работает.<br>• Подсветка под музыку выключена по умолчанию; просит доступ к звуку.<br>• Обновления: Настройки → «Обновить с телефона» (QR → выбрать .apk) или «Проверить обновления». Ставится только ваша подписанная сборка, настройки сохраняются.</div></div>
+</aside></main>
+<script>
+/*DATA*/
+const $=s=>document.querySelector(s);
+const S={screen:'new',nv:null,layout:'cluster',variant:null,media:'media-root'};
+const SCREENS=[['new','Новое в 1.7.0'],['home','Главная'],['apps','Приложения'],['media','Флешка / Медиа'],['dvr','Записи'],['settings','Настройки']];
+const ACC={'gold':'#e0b252','blue':'#2e8bff'};
+function accent(){const v=S.variant||'';for(const k in ACC) if(v.includes(k)) return ACC[k];return '#0a84ff'}
+function render(){
+ $('#screens').innerHTML=SCREENS.map(([k,l])=>`<button class="chip ${S.screen==k?'sel':''}" data-s="${k}">${l}</button>`).join('');
+ $('#laysec').style.display=S.screen=='home'?'':'none';$('#mediasec').style.display=S.screen=='media'?'':'none';$('#newsec').style.display=S.screen=='new'?'':'none';
+ if(!S.nv&&DATA.news.length) S.nv=DATA.news[0][0];$('#nvars').innerHTML=DATA.news.map(([k,l])=>`<button class="chip ${S.nv==k?'sel':''}" data-n="${k}">${l}</button>`).join('');const NN=DATA.news.find(x=>x[0]==S.nv);$('#ndesc').textContent=NN?NN[2]:'';
+ $('#lays').innerHTML=DATA.layouts.map(l=>`<button class="chip ${S.layout==l.id?'sel':''} ${DATA.dash.includes(l.id)?'new':''}" data-l="${l.id}">${l.name}</button>`).join('');
+ const L=DATA.layouts.find(l=>l.id==S.layout);$('#ldesc').textContent=L?L.desc:'';
+ const vs=DATA.variants[S.layout]||[];if(!vs.find(v=>v[0]==S.variant)) S.variant=vs.length?vs[0][0]:null;
+ $('#vars').innerHTML=vs.map(([k,l])=>`<button class="chip ${S.variant==k?'sel':''}" data-v="${k}">${l}</button>`).join('');
+ $('#mvars').innerHTML=[['media-root','Флешка: корень'],['media-folder','Папка «Фильмы»'],['media-music','Музыка']].map(([k,l])=>`<button class="chip ${S.media==k?'sel':''}" data-m="${k}">${l}</button>`).join('');
+ const tall=S.screen=='settings'||(S.screen=='new'&&S.nv=='v170-settings-full');$('#tall').style.display=tall?'block':'none';
+ let src=S.screen=='new'?DATA.imgs[S.nv]:S.screen=='home'?DATA.imgs[S.variant]:S.screen=='media'?DATA.imgs[S.media]:DATA.imgs[S.screen];
+ if(tall){$('#tallimg').src=DATA.imgs[S.screen=='new'?S.nv:'settings-full'];src=DATA.imgs[S.variant]||src}
+ if(src) $('#scr').src=src;
+ const g=$('#glow');g.style.setProperty('--ac',accent());
+ const gl=$('#tglow').checked&&S.screen=='home'&&!(S.variant||'').endsWith('idle');g.className=gl?('on'+($('#tbreath').checked?'':' music')):'';
+ $('#ovmini').style.display=$('#tmini').checked?'block':'none';$('#miniimg').src=DATA.imgs['miniplayer']||'';
+ $('#split').style.display=$('#tsplit').checked?'block':'none';$('#splitimg').src=DATA.imgs['layout-media']||DATA.imgs[S.variant]||'';
+ $('#ovup').style.display=$('#tup').checked?'block':'none';$('#upimg').src=DATA.imgs['upload']||'';
+}
+document.addEventListener('click',e=>{const t=e.target.closest('[data-s],[data-l],[data-v],[data-m],[data-n]');if(!t)return;
+ if(t.dataset.s)S.screen=t.dataset.s;if(t.dataset.l){S.layout=t.dataset.l;S.variant=null}if(t.dataset.v)S.variant=t.dataset.v;if(t.dataset.m)S.media=t.dataset.m;if(t.dataset.n)S.nv=t.dataset.n;render()});
+['tglow','tbreath','tmini','tsplit','tup'].forEach(id=>$('#'+id).addEventListener('change',e=>{if(id=='tmini'&&e.target.checked){$('#tsplit').checked=false;$('#tup').checked=false}
+ if(id=='tsplit'&&e.target.checked){$('#tmini').checked=false;$('#tup').checked=false}if(id=='tup'&&e.target.checked){$('#tmini').checked=false;$('#tsplit').checked=false}render()}));
+// rail hotspots on the image (same order as the real rail)
+const order=['home','apps','media','dvr','settings'];
+$('#hots').innerHTML=order.map((k,i)=>`<div class="hot" data-s="${k}" title="${k}" style="top:${(1.2+i*9.6).toFixed(2)}%;height:9.6%"></div>`).join('');
+$('#ovup').addEventListener('click',()=>{$('#tup').checked=false;render()});
+render();
+
+// v1.6.3 live demo of «Столбики» (same easing as the app: fast rise, slow fall, neighbour smoothing)
+(function(){const c=document.getElementById('bars');if(!c)return;const g=c.getContext('2d');const N=28,shown=new Float32Array(N),tg=new Float32Array(N);
+ const img=new Image();img.src=DATA.imgs.democover;const pl=document.getElementById('plateimg');if(pl&&DATA.imgs.plate)pl.src=DATA.imgs.plate;
+ let beat=0,last=0;function rr(x,y,w,h,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath()}
+ function frame(t){requestAnimationFrame(frame);if(t-last<33)return;last=t;const s=t/1000;
+  if(Math.floor(s*2.1)!==beat){beat=Math.floor(s*2.1);}const bp=Math.max(0,1-((s*2.1)%1)*2.2);
+  for(let b=0;b<N;b++){const bass=Math.max(0,1-b/7)*bp*0.75;tg[b]=Math.min(1,0.18+bass+0.28*Math.abs(Math.sin(s*1.7+b*0.55))*Math.abs(Math.sin(s*0.9+b*0.21))+0.12*Math.random()*(b/N));}
+  for(let b=0;b<N;b++){const v=tg[b]*0.6+(tg[Math.max(0,b-1)]+tg[Math.min(N-1,b+1)])*0.2;shown[b]+=(v-shown[b])*(v>shown[b]?0.45:0.12);}
+  const W=c.width,H=c.height,R=34;g.clearRect(0,0,W,H);g.save();rr(0,0,W,H,R);g.clip();if(img.complete)g.drawImage(img,0,0,W,H);else{g.fillStyle='#333';g.fillRect(0,0,W,H)}
+  const base=H*0.8,mh=H*0.3;let gr=g.createLinearGradient(0,base-mh*1.4,0,H);gr.addColorStop(0,'rgba(0,0,0,0)');gr.addColorStop(1,'rgba(0,0,0,.63)');g.fillStyle=gr;g.fillRect(0,base-mh*1.4,W,H);
+  const span=W*0.84,x0=(W-span)/2,step=span/N,bw=step*0.56,ac=accent();
+  for(let b=0;b<N;b++){const h=Math.max(bw,mh*shown[b]),cx=x0+step*(b+.5);
+   g.fillStyle=ac+'38';rr(cx-bw,base-h-bw*.5,bw*2,h+bw,bw);g.fill();
+   const lg=g.createLinearGradient(0,base,0,base-mh);lg.addColorStop(0,ac);lg.addColorStop(1,'#ffffffcc');g.fillStyle=lg;rr(cx-bw/2,base-h,bw,h,bw/2);g.fill();
+   const rg=g.createLinearGradient(0,base,0,base+mh*.4);rg.addColorStop(0,ac+'59');rg.addColorStop(1,ac+'00');g.fillStyle=rg;rr(cx-bw/2,base+bw*.6,bw,h*.4,bw/2);g.fill();}
+  g.restore();}
+ requestAnimationFrame(frame);})();
+</script></body></html>
