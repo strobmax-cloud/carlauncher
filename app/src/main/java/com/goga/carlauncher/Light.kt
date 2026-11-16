@@ -26,7 +26,7 @@ object LightPass {
     const val INK = 0xFF16171A.toInt()
     const val INK2 = 0xFF5B5E66.toInt()
     /** Classic layouts recoloured by this pass (the v1.6 dashboards have their own day look). */
-    fun applies(layout: String) = layout !in setOf("cluster", "chrono", "radial", "showcase")
+    fun applies(layout: String) = layout !in setOf("cluster", "chrono", "radial", "showcase", "screens")
 
     private fun lum(c: Int) = (0.299 * Color.red(c) + 0.587 * Color.green(c) + 0.114 * Color.blue(c)) / 255.0
     private fun sat(c: Int): Double { val mx = maxOf(Color.red(c), Color.green(c), Color.blue(c)); val mn = minOf(Color.red(c), Color.green(c), Color.blue(c)); return if (mx == 0) 0.0 else (mx - mn) / mx.toDouble() }

@@ -65,8 +65,8 @@ class V15Test {
         root.measure(View.MeasureSpec.makeMeasureSpec(1280, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(720, View.MeasureSpec.EXACTLY))
         root.layout(0, 0, 1280, 720)
     }
-    private fun start(): Pair<org.robolectric.android.controller.ActivityController<MainActivity>, MainActivity> {
-        val c = Robolectric.buildActivity(MainActivity::class.java).setup(); settle(); relayout(c.get().window.decorView); settle()
+    private fun start(): Pair<org.robolectric.android.controller.ActivityController<ClassicActivity>, ClassicActivity> {
+        val c = Robolectric.buildActivity(ClassicActivity::class.java).setup(); settle(); relayout(c.get().window.decorView); settle()
         return c to c.get()
     }
     private fun all(v: View, out: ArrayList<View> = ArrayList()): ArrayList<View> { if (v.isShown) out.add(v); if (v is ViewGroup) for (k in 0 until v.childCount) all(v.getChildAt(k), out); return out }

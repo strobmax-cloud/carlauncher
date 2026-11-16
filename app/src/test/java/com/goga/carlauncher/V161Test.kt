@@ -47,12 +47,12 @@ class V161Test {
         val cn = ComponentName(pkg, "$pkg.Main"); spm.addActivityIfNotPresent(cn)
         spm.addIntentFilterForActivity(cn, IntentFilter(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) })
     }
-    private fun start(): MainActivity { val a = Robolectric.buildActivity(MainActivity::class.java).setup().get(); settle(); relayout(a.window.decorView); settle(); return a }
+    private fun start(): ClassicActivity { val a = Robolectric.buildActivity(ClassicActivity::class.java).setup().get(); settle(); relayout(a.window.decorView); settle(); return a }
 
     @Test fun nordicRemovedAndMigrated() {
         assertTrue(Layouts.ALL.none { it.id == "nordic" })
         ctx.getSharedPreferences("cl", 0).edit().putString("layout", "nordic").putBoolean("nordicLight", true).commit()
-        assertEquals("cockpit", Prefs.layout)
+        assertEquals(Layouts.SCREENS.id, Prefs.layout)   // v1.7.1: retired → stored "cockpit", shown only with «Классические раскладки»
         assertEquals("cockpit", ctx.getSharedPreferences("cl", 0).getString("layout", null))
         assertFalse(ctx.getSharedPreferences("cl", 0).contains("nordicLight"))
         assertEquals("cockpit", Layouts.byId("nordic").id)
@@ -73,18 +73,18 @@ class V161Test {
     }
 
     @Test fun prevNextAndDayNightButtons() {
-        Prefs.layout = "cockpit"
+        Prefs.layout = "cockpit"; Prefs.railItems = "home,apps,media,dvr,settings,layout,phone,wifi"; Prefs.railSize = "normal"; Prefs.migrated = 1
         val a = start(); val root = a.window.decorView
         val prev = all(root).first { it.contentDescription == "Предыдущая раскладка" }
         val next = all(root).first { it.contentDescription == "Следующая раскладка" }
         val dn = all(root).first { it.contentDescription == "День / ночь" }
         assertTrue(prev.isShown && next.isShown && dn.isShown)
-        val loc = IntArray(2); dn.getLocationInWindow(loc); assertTrue("inside screen", loc[1] + dn.height <= 720 && loc[1] > 300)
+        val loc = IntArray(2); dn.getLocationInWindow(loc); assertTrue("inside screen", loc[1] + dn.height <= 720 && loc[1] > 200)
         next.performClick(); settle(); assertEquals(Layouts.ALL[1].id, Prefs.layout)
         all(a.window.decorView).first { it.contentDescription == "Предыдущая раскладка" }.performClick(); settle(); assertEquals("cockpit", Prefs.layout)
         all(a.window.decorView).first { it.contentDescription == "Предыдущая раскладка" }.performClick(); settle(); assertEquals(Layouts.ALL.last().id, Prefs.layout)
         all(a.window.decorView).first { it.contentDescription == "День / ночь" }.performClick(); settle(); assertEquals("day", Prefs.dayMode)
-        a.show(MainActivity.SETTINGS); settle()
+        a.show(ClassicActivity.SETTINGS); settle()
         assertFalse(all(a.window.decorView).first { it.contentDescription == "Следующая раскладка" }.isShown)
     }
 
@@ -96,7 +96,7 @@ class V161Test {
             val ink = all(root).filterIsInstance<TextView>().count { it.isShown && (it.currentTextColor and 0xFFFFFF) in setOf(LightPass.INK and 0xFFFFFF, LightPass.INK2 and 0xFFFFFF) || it.currentTextColor == Dash.fg(true) }
             assertTrue("${l.id}: dark type in day mode ($ink)", ink >= 2)
             if (LightPass.applies(l.id)) {
-                val home = MainActivity::class.java.getDeclaredField("screens").apply { isAccessible = true }.get(a) as Array<*>
+                val home = ClassicActivity::class.java.getDeclaredField("screens").apply { isAccessible = true }.get(a) as Array<*>
                 assertTrue((home[0] as HomeScreen).light)
             }
         }

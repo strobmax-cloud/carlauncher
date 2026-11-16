@@ -16,7 +16,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import com.goga.carlauncher.Ui.u
 
-class SettingsScreen(a: MainActivity) : Screen(a) {
+class SettingsScreen(a: ClassicActivity) : Screen(a) {
     companion object {
         /** v1.7.0: scroll position survives rebuilds after a change (the page no longer jumps to the top). */
         var savedScroll = 0
@@ -61,14 +61,15 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
 
     /** iOS-style flat toggle (instant, no animation). */
     private fun switch(on: Boolean, cb: (Boolean) -> Unit): View {
-        val wrap = FrameLayout(a).apply { layoutParams = LinearLayout.LayoutParams(u(120), u(80)); isClickable = true }
-        val track = FrameLayout(a).apply { setPadding(u(4), u(4), u(4), u(4)) }
+        // v1.7.1: bigger for a finger in the car (whole 132×88 area reacts)
+        val wrap = FrameLayout(a).apply { layoutParams = LinearLayout.LayoutParams(u(132), u(88)); isClickable = true }
+        val track = FrameLayout(a).apply { setPadding(u(5), u(5), u(5), u(5)) }
         val thumb = View(a).apply { background = Ui.oval(Color.WHITE) }
-        track.addView(thumb, FrameLayout.LayoutParams(u(44), u(44)))
-        wrap.addView(track, Ui.frame(u(88), u(52)))
+        track.addView(thumb, FrameLayout.LayoutParams(u(52), u(52)))
+        wrap.addView(track, Ui.frame(u(104), u(62)))
         var state = on
         fun paint() {
-            track.background = Ui.round(if (state) Ui.accent else Ui.PRESSED, u(26))
+            track.background = Ui.round(if (state) Ui.accent else Ui.PRESSED, u(31))
             (thumb.layoutParams as FrameLayout.LayoutParams).gravity = Gravity.CENTER_VERTICAL or (if (state) Gravity.END else Gravity.START)
             thumb.requestLayout()
         }
@@ -83,11 +84,12 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
         val seg = Ui.hbox(a).apply { setPadding(u(100), 0, u(16), u(14)) }
         for ((id, label) in options) {
             val sel = id == cur
-            seg.addView(Ui.text(a, 19, if (sel) Color.WHITE else Ui.TEXT2, Ui.MEDIUM).apply {
-                text = label; gravity = Gravity.CENTER; setPadding(u(22), 0, u(22), 0)
-                background = Ui.pressable(if (sel) Ui.accent else Ui.SURFACE2, u(26), Ui.PRESSED); isClickable = true
+            // v1.7.1: ≥ 72 px tall, ≥ 120 px wide, 14 px apart — big enough for a thumb
+            seg.addView(Ui.text(a, 21, if (sel) Color.WHITE else Ui.TEXT2, Ui.MEDIUM).apply {
+                text = label; gravity = Gravity.CENTER; setPadding(u(28), 0, u(28), 0); minWidth = u(120); contentDescription = "$title: $label"
+                background = Ui.pressable(if (sel) Ui.accent else Ui.SURFACE2, u(30), Ui.PRESSED); isClickable = true
                 setOnClickListener { if (!sel) cb(id) }
-            }, Ui.lin(Ui.WRAP, u(56)).apply { rightMargin = u(10) })
+            }, Ui.lin(Ui.WRAP, u(72)).apply { rightMargin = u(14) })
         }
         card.addView(android.widget.HorizontalScrollView(a).apply { isHorizontalScrollBarEnabled = false; addView(seg) })
     }
@@ -209,6 +211,16 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
     private fun build0() {
         body.removeAllViews()
         // Layout: completely different home arrangements
+        val hs = section("Главный экран")
+        choiceRow(hs, R.drawable.ic_home, "Вид главного экрана", "Экраны: Главная · Музыка · Камера — листаются пальцем, большой переключатель сверху. Классические — 14 старых раскладок",
+            listOf("screens" to "Экраны", "classic" to "Классические"), if (Prefs.classic) "classic" else "screens") {
+            if (it == "classic") { Prefs.classic = true; if (Prefs.layout == Layouts.SCREENS.id) Prefs.layout = Layouts.ALL[0].id }
+            else { Prefs.classic = false; Prefs.layout = Layouts.SCREENS.id }
+            a.rebuild()
+        }
+        if (!Prefs.classic) row(hs, R.drawable.ic_videocam, "Экран «Камера»", "Третий экран: камера заднего вида и скорость",
+            switch(Prefs.camPage) { Prefs.camPage = it; a.rebuild() }, null)
+        if (Prefs.classic) {
         val ls = section("Раскладка главного экрана")
         fun layoutStrip(card: LinearLayout, brand: Boolean) {
             val lstrip = Ui.hbox(a).apply { setPadding(u(12), u(14), u(12), u(10)); gravity = Gravity.TOP }
@@ -223,16 +235,34 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
         layoutStrip(ls, false)
         val bs = section("Раскладки по мотивам автомобилей")
         layoutStrip(bs, true)
+        }
 
         // v1.7.0: side menu — position, volume buttons, items
         val mn = section("Боковое меню и громкость")
         choiceRow(mn, R.drawable.ic_apps, "Где меню", "Слева или справа — колонка, снизу — док как на Mac (листается вбок). Пункты листаются, если их много",
             listOf("left" to "Слева", "right" to "Справа", "bottom" to "Снизу"), Prefs.railSide) { Prefs.railSide = it; a.rebuild() }
-        choiceRow(mn, R.drawable.ic_vol_up, "Кнопки громкости", "Всегда на месте, не уезжают за край. Обе стороны — водителю и пассажиру (в доке — по краям)",
+        choiceRow(mn, R.drawable.ic_tune, "Размер меню и кнопок", "Ширина меню, значки, подписи и кнопки ‹ ☀ › 🎨. Крупный — на четверть больше прежнего",
+            listOf("normal" to "Обычный", "large" to "Крупный", "xlarge" to "Очень крупный"), Prefs.railSize) { Prefs.railSize = it; a.rebuild() }
+        choiceRow(mn, R.drawable.ic_vol_up, "Кнопки громкости", "Полупрозрачные, поверх экрана, место под них не занимается. Обе стороны — водителю и пассажиру",
             listOf("both" to "Обе стороны", "left" to "Только слева", "right" to "Только справа"), Prefs.volSide) { Prefs.volSide = it; a.rebuild() }
-        choiceRow(mn, R.drawable.ic_vol_down, "Способ громкости", "Авто — громкость Android (как кнопки магнитолы), если не меняется — активный поток, затем клавиша громкости. " +
-            "Если кнопки не работают — попробуйте другой способ. Последний: " + Volume.lastMethod.ifEmpty { "—" },
-            listOf("auto" to "Авто", "stream" to "Музыка", "suggested" to "Активный звук", "key" to "Клавиша"), Prefs.volMethod) { Prefs.volMethod = it; build() }
+        choiceRow(mn, R.drawable.ic_vol_up, "Где кнопки громкости по высоте", null,
+            listOf("center" to "По центру", "bottom" to "Внизу", "top" to "Вверху"), Prefs.volPos) { Prefs.volPos = it; a.rebuild() }
+        choiceRow(mn, R.drawable.ic_vol_up, "Размер кнопок громкости", null,
+            listOf("64" to "Обычные", "76" to "Крупные", "92" to "Очень крупные"), Prefs.volSize.toString()) { Prefs.volSize = it.toInt(); a.rebuild() }
+        row(mn, R.drawable.ic_vol_down, "Тест громкости", "Способ сейчас: " + (Volume.method(Prefs.volMethod)?.let { "${it.n} — ${it.title}" } ?: "Авто") +
+            ". Магнитола (com.syu.ms): " + (if (Syu.connected) "подключена ✓" else if (Syu.missing) "сервис не найден" else "подключаюсь") +
+            ". Нажмите — 8 способов по большой кнопке, выберите тот, что работает", null) { a.show(ClassicActivity.VOLTEST) }
+        val acc = NavAccess.enabled(a)
+        row(mn, R.drawable.ic_back, "Кнопки «Назад» и «Недавние»", if (acc) "Служба включена ✓ — кнопки работают в меню и на плавающей кнопке"
+            else "Нужна служба «Car Launcher — кнопки навигации» (Спец. возможности). Нажмите — объясню и открою. Кнопки руля она не трогает", null) {
+            if (acc) NavKeys.openSettings(a) else NavKeys.explain(a)
+        }
+        row(mn, R.drawable.ic_home, "Плавающие кнопки Назад / Домой / Недавние", "Поверх других приложений (навигатор, YouTube), если системные кнопки под держателем телефона. " +
+            "Перетаскивается за полоску слева. " + (if (Nav.canOverlay(a)) "" else "Нужно разрешение «Поверх других окон»"),
+            switch(Prefs.floatNav) { on ->
+                Prefs.floatNav = on
+                if (on && !Nav.canOverlay(a)) askOverlay() else FloatNav.sync(a)
+            }, null)
         railEditor(mn)
 
         // v1.6.3: the SX4 on the road — road time of day (only the road; the interface stays as you set it) and the plate
@@ -277,9 +307,9 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
                 setOnClickListener { if (!sel) { Prefs.accent = id; a.rebuild() } } }
             val dot = View(a).apply { background = GradientDrawable().apply { shape = GradientDrawable.OVAL
                 setColor(Accents.color(id) ?: Themes.byId(Prefs.theme).accent); if (sel) setStroke(u(5), Color.WHITE) } }
-            col.addView(dot, Ui.lin(u(60), u(60)))
-            col.addView(Ui.text(a, 14, if (sel) Ui.TEXT else Ui.TEXT2, Ui.MEDIUM).apply { text = label; gravity = Gravity.CENTER }, Ui.lin(u(96), Ui.WRAP).apply { topMargin = u(6) })
-            sw.addView(col, Ui.lin(u(96), Ui.WRAP))
+            col.addView(dot, Ui.lin(u(76), u(76)))
+            col.addView(Ui.text(a, 16, if (sel) Ui.TEXT else Ui.TEXT2, Ui.MEDIUM).apply { text = label; gravity = Gravity.CENTER }, Ui.lin(u(110), Ui.WRAP).apply { topMargin = u(6) })
+            sw.addView(col, Ui.lin(u(110), Ui.WRAP).apply { rightMargin = u(6) })
         }
         th.addView(android.widget.HorizontalScrollView(a).apply { isHorizontalScrollBarEnabled = false; addView(sw) })
 
@@ -324,8 +354,10 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
         }
         row(wp, R.drawable.ic_folder, "Добавить с флешки", "Можно выбрать несколько. Картинки копируются в память магнитолы — флешку можно вынуть", null) { a.pickWallpaper() }
         if (gallery.isNotEmpty()) row(wp, R.drawable.ic_trash, "Моя галерея: ${gallery.size} фото", "Долгое нажатие на картинку выше — удалить", null, null)
-        choiceRow(wp, R.drawable.ic_music, "Фон при музыке", "Статичный: размытие считается один раз на трек, без анимации",
-            listOf("cover" to "Размытая обложка", "wall" to "Мои обои"), Prefs.bgMode) { Prefs.bgMode = it; Wallpaper.refreshCoverMode(); build() }
+        choiceRow(wp, R.drawable.ic_music, "Фон при музыке", "Чёткая — сама обложка на весь экран (слегка затемнена). Быстро: кнопка 🎨 в меню на главном",
+            listOf("wall" to "Мои обои", "cover" to "Размытая обложка", "sharp" to "Чёткая обложка"), Prefs.bgMode) { Prefs.bgMode = it; Wallpaper.refreshCoverMode(); build() }
+        row(wp, R.drawable.ic_palette, "Цвет из обложки", "Кнопки, подсветка и меню берут цвет обложки играющего трека. Без музыки — «Цвет акцента». Быстро: 🎨 в меню",
+            switch(Prefs.coverAccent) { Prefs.coverAccent = it; a.rebuild() }, null)
         choiceRow(wp, R.drawable.ic_refresh, "Смена обоев", if (gallery.size >= 2) "По кругу из вашей галереи (${gallery.size} фото)" else "Пока в галерее меньше 2 фото — по кругу вместе со встроенными",
             Gallery.ROTATE, Prefs.rotate) { Prefs.rotate = it; Prefs.rotatedAt = System.currentTimeMillis(); build() }
 
@@ -408,7 +440,7 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
                 d.window?.setWindowAnimations(0); d.show()
             }
         }
-        row(md, R.drawable.ic_usb, "Открыть «Флешка / Медиа»", "Тоже есть в боковом меню. Плитку «Флешка» можно включить ниже", null) { a.show(MainActivity.MEDIA) }
+        row(md, R.drawable.ic_usb, "Открыть «Флешка / Медиа»", "Тоже есть в боковом меню. Плитку «Флешка» можно включить ниже", null) { a.show(ClassicActivity.MEDIA) }
 
         // Tiles
         val tiles = section("Плитки на главном экране")
@@ -432,11 +464,11 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
             listOf("day" to "День", "night" to "Ночь"), Prefs.dayMode) { Prefs.dayMode = it; a.rebuild() }
         choiceRow(w, R.drawable.ic_tune, "Подсветка приборов", "Цвет стрелок и дуг в «приборных» раскладках",
             Dash.ACCENTS, Prefs.dashAccent) { Prefs.dashAccent = it; a.rebuild() }
-        choiceRow(w, R.drawable.ic_music, "Подсветка под музыку", "Мягкое свечение — еле заметно по краям экрана. Столбики — тонкий спектр в обложке, плавно, до 30 кадров/с, только пока играет. " +
+        choiceRow(w, R.drawable.ic_music, "Подсветка под музыку", "Мягкое свечение — еле заметно по краям экрана. Столбики — спектр вдоль левого и правого края экрана (на обложку не заходят), до 30 кадров/с, только пока играет. " +
             (if (a.has(android.Manifest.permission.RECORD_AUDIO)) "Доступ к звуку есть ✓" else "Нужен доступ «Микрофон/звук» — без него просто спокойно «дышит»") +
             ". Если радио или BT-звонки начнут глючить — выключите",
             listOf("off" to "Выкл", "glow" to "Мягкое свечение", "bars" to "Столбики"), Prefs.musicFx) {
-            Prefs.musicFx = it; if (it != "off") a.requestAudioPerm(); a.glow?.settingsChanged(); build() }
+            Prefs.musicFx = it; if (it != "off") a.requestAudioPerm(); a.glow?.settingsChanged(); a.rebuild() }
         row(w, R.drawable.ic_nav, "Показывать карту OSM", "Маленькая карта-превью вместо карточки навигатора. Тратит интернет и память — обычно не нужна",
             switch(Prefs.showOsmMap) { Prefs.showOsmMap = it; a.rebuild() }, null)
         // Updates: from the phone (local page) or from the internet manifest; the system installer always asks
@@ -471,6 +503,10 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
             AppRepo.startSafe(a, Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:" + a.packageName)), Intent(Settings.ACTION_SETTINGS))
         }
 
+        // v1.7.1 storage cleanup
+        val cl = section("Память магнитолы")
+        cl.addView(Storage.view(a).apply { setPadding(u(20), u(8), u(20), u(8)) }, Ui.lin(Ui.MATCH, Ui.WRAP))
+        row(cl, R.drawable.ic_storage, "Очистка памяти", "Приложения и папки по размеру, что можно убрать и что не трогать. Удаление — только через системное окно", null) { a.show(ClassicActivity.CLEAN) }
         // System
         val s = section("Система")
         row(s, R.drawable.ic_home, "Сделать главным экраном", "Выберите Car Launcher как приложение «Главный экран»", null) {

@@ -35,7 +35,7 @@ class DashTest {
     private fun all(v: View, out: ArrayList<View> = ArrayList()): ArrayList<View> { if (v.isShown) out.add(v); if (v is ViewGroup) for (k in 0 until v.childCount) all(v.getChildAt(k), out); return out }
 
     @Test fun dashboardsFitAndStayHonest() {
-        val c = Robolectric.buildActivity(MainActivity::class.java).setup(); settle(); val act = c.get(); val root = act.window.decorView
+        val c = Robolectric.buildActivity(ClassicActivity::class.java).setup(); settle(); val act = c.get(); val root = act.window.decorView
         val banned = listOf("ПОЕЗДКА", "В ПУТИ", "МАКС", "ОБ/МИН", "RPM", "ТОПЛИВО", "°C")
         for (id in listOf("cluster", "chrono", "radial", "showcase")) for (m in listOf("day", "night")) {
             Prefs.layout = id; Prefs.dayMode = m; act.rebuild(); settle(2); relayout(root); settle(1)
@@ -45,7 +45,9 @@ class DashTest {
             assertTrue("$id: no trip/OBD captions $t", t.none { s -> banned.any { s.contains(it) } })
             assertTrue("$id: no map", vs.none { it is MapTileView })
             if (id != "chrono") assertTrue("$id/$m: speed shows — without GPS", t.any { it == "—" })   // chrono paints it on the dial
-            for (v in vs) if (v is TextView && v.text.isNotEmpty() && v.width > 0) {
+            // v1.7.1: the side menu is longer (Назад / Недавние) and scrolls — its items may sit below the fold by design
+            fun inScroll(v: View): Boolean { var p = v.parent; while (p != null) { if (p is android.widget.ScrollView) return true; p = p.parent }; return false }
+            for (v in vs) if (v is TextView && v.text.isNotEmpty() && v.width > 0 && !inScroll(v)) {
                 val loc = IntArray(2); v.getLocationInWindow(loc)
                 assertTrue("$id: '${v.text}' inside screen", loc[0] >= 0 && loc[1] >= 0 && loc[0] + v.width <= 1281 && loc[1] + v.height <= 721)
             }
@@ -54,7 +56,7 @@ class DashTest {
     }
 
     @Test fun glowFallsBackToBreathingAndStops() {
-        val c = Robolectric.buildActivity(MainActivity::class.java).setup(); settle(); val act = c.get()
+        val c = Robolectric.buildActivity(ClassicActivity::class.java).setup(); settle(); val act = c.get()
         val g = act.glow!!
         g.setActive(true); g.setPlaying(true); settle(1)
         assertEquals("off by default", "off", g.mode)
@@ -78,7 +80,7 @@ class DashTest {
     }
 
     @Test fun phoneSwitchOpensPairedList() {
-        val c = Robolectric.buildActivity(MainActivity::class.java).setup(); settle(); val act = c.get()
+        val c = Robolectric.buildActivity(ClassicActivity::class.java).setup(); settle(); val act = c.get()
         // no FYT BT app → Android Bluetooth settings
         assertEquals("settings", PhoneSwitch.open(act))
         assertEquals(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS, shadowOf(act).nextStartedActivity.action)

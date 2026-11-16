@@ -91,20 +91,20 @@ class RenderTest {
         root.layout(0, 0, root.width, root.height)
     }
 
-    private fun home(act: MainActivity): HomeScreen {
-        val scr = MainActivity::class.java.getDeclaredField("screens").apply { isAccessible = true }.get(act) as Array<*>
+    private fun home(act: ClassicActivity): HomeScreen {
+        val scr = ClassicActivity::class.java.getDeclaredField("screens").apply { isAccessible = true }.get(act) as Array<*>
         return scr[0] as HomeScreen
     }
 
     private fun call(home: HomeScreen, name: String, type: Class<*>, arg: Any) =
         HomeScreen::class.java.getDeclaredMethod(name, type).apply { isAccessible = true }.invoke(home, arg)
 
-    private fun gps(act: MainActivity) {
+    private fun gps(act: ClassicActivity) {
         val l = Location("gps").apply { latitude = MapTileView.DEFAULT_LAT; longitude = MapTileView.DEFAULT_LON; speed = 62 / 3.6f; bearing = 48f; accuracy = 4f; time = System.currentTimeMillis() }
         call(home(act), "onFix", Location::class.java, l)
     }
 
-    private fun playing(act: MainActivity, root: View) {
+    private fun playing(act: ClassicActivity, root: View) {
         val home = home(act)
         fun f(n: String) = HomeScreen::class.java.getDeclaredField(n).apply { isAccessible = true }.get(home)
         val cover = android.graphics.BitmapFactory.decodeStream(javaClass.classLoader!!.getResourceAsStream("sample-cover.png"))
@@ -125,8 +125,8 @@ class RenderTest {
         repeat(14) { root.draw(scratch) }
     }
 
-    private fun start(): Pair<ActivityController<MainActivity>, MainActivity> {
-        val ctrl = Robolectric.buildActivity(MainActivity::class.java).setup()
+    private fun start(): Pair<ActivityController<ClassicActivity>, ClassicActivity> {
+        val ctrl = Robolectric.buildActivity(ClassicActivity::class.java).setup()
         val act = ctrl.get()
         settle(); relayout(act.window.decorView); settle()
         return ctrl to act
@@ -174,7 +174,7 @@ class RenderTest {
     }
 
     /** Clicks (and long-clicks) every clickable view in the given screen; dialogs are dismissed. */
-    private fun clickAll(act: MainActivity, screen: Int, long: Boolean): Int {
+    private fun clickAll(act: ClassicActivity, screen: Int, long: Boolean): Int {
         val root = act.window.decorView
         act.show(screen); settle(2); relayout(root)
         val content = (root as ViewGroup)

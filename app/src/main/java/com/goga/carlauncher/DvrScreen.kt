@@ -25,7 +25,7 @@ import java.util.Calendar
 import java.util.Locale
 import java.util.concurrent.Executors
 
-class DvrScreen(a: MainActivity) : Screen(a) {
+class DvrScreen(a: ClassicActivity) : Screen(a) {
     private val ru = Locale("ru")
     private val dayKeyFmt = SimpleDateFormat("yyyyMMdd", ru)
     private val dayFmt = SimpleDateFormat("d MMMM, EEEE", ru)

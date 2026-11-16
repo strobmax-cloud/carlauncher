@@ -19,7 +19,13 @@
     <!-- v1.7.0: only for the experimental live camera tile (off by default, asked when switched on) -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- v1.7.1 «Очистка памяти»: app sizes (StorageStatsManager); the user grants «Доступ к истории использования» himself -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
+    <queries>
+        <package android:name="com.syu.ms" />
+        <intent><action android:name="com.syu.ms.toolkit" /></intent>
+    </queries>
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
@@ -40,7 +46,7 @@
             android:stateNotNeeded="true"
             android:clearTaskOnLaunch="true"
             android:resizeableActivity="false"
-            android:windowSoftInputMode="adjustNothing|stateHidden"
+            android:windowSoftInputMode="adjustPan|stateHidden"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density|fontScale|locale|layoutDirection|mcc|mnc">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -49,6 +55,14 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <!-- v1.7.1: the 1.7.0 screens, opened only from Настройки → О программе → «Классический экран 1.7.0» -->
+        <activity
+            android:name=".ClassicActivity"
+            android:exported="false"
+            android:screenOrientation="sensorLandscape"
+            android:resizeableActivity="false"
+            android:windowSoftInputMode="adjustNothing|stateHidden"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density|fontScale|locale|layoutDirection|mcc|mnc" />
         <service
             android:name=".MediaListener"
             android:exported="true"
@@ -61,6 +75,10 @@
         <receiver android:name=".InstallReceiver" android:exported="false" />
         <service
             android:name=".MiniPlayer"
+            android:exported="false" />
+        <!-- v1.7.1: the optional accessibility «Назад / Недавние» service was removed (the new screens have only «Главная»). -->
+        <service
+            android:name=".FloatNav"
             android:exported="false" />
         <provider
             android:name=".FilesProvider"

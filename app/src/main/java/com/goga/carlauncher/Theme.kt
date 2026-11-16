@@ -60,5 +60,5 @@ object Themes {
         t.tint, t.border, t.radius, t.clockFont, t.clockSize, t.clockFg, if (t.clockBg != 0) accent else 0, t.dateFg, t.speedBg,
         t.speedFg, t.tileBlocks, t.bento, t.wallDim)
     /** Theme chosen in Settings + accent colour. */
-    fun active(): Theme = withAccent(byId(Prefs.theme), Accents.color(Prefs.accent))
+    fun active(): Theme = withAccent(byId(Prefs.theme), (if (Prefs.coverAccent) Wallpaper.coverColor else null) ?: Accents.color(Prefs.accent))
 }

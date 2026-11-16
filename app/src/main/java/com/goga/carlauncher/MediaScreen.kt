@@ -44,7 +44,7 @@ class ProgressLine(c: Context) : View(c) {
  * «Флешка / Медиа»: browse USB / SD / internal storage for video and music, one folder at a time (no deep scans).
  * Opens files in the preferred player; VLC gets / returns the playback position so every file resumes where it stopped.
  */
-class MediaScreen(a: MainActivity) : Screen(a) {
+class MediaScreen(a: ClassicActivity) : Screen(a) {
     private val ru = Locale("ru")
     private var vols: List<Media.Vol> = emptyList()
     private var vol: Media.Vol? = null

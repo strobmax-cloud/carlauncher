@@ -38,7 +38,8 @@ object RoadArt {
     private val TAIL = floatArrayOf(0.11f, 0.55f, 0.89f, 0.55f)   // tail-light centres (fraction of car w / h)
     // plate recess on the tailgate (fraction of car w / h): centre and size of a 520×112 mm plate on a ~1.78 m wide car
     private const val PLATE_CX = 0.5f; private const val PLATE_CY = 0.655f
-    private const val PLATE_W = 0.275f; private const val PLATE_H = 0.052f
+    // v1.7.1: a touch larger than to scale (+15 %) so the plate stays readable on a 1280×720 screen
+    private const val PLATE_W = 0.315f; private const val PLATE_H = 0.062f
 
     // ---------------------------------------------------------------- time of day for the road only
     const val ASTANA_LAT = 51.17; const val ASTANA_LON = 71.45
@@ -180,7 +181,20 @@ object RoadArt {
             cv.save(); cv.scale(1f, 0.16f, vx, yc); cv.drawCircle(vx, yc, cw * 0.62f, p); cv.restore()
         }
         p.shader = null
-        cv.drawBitmap(car, null, RectF(l, top, l + cw, top + ch), Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
+        // v1.7.1: the car is pre-scaled in halving steps to its exact pixel size (a single big bilinear jump from the
+        // 637 px asset aliased into "pixels"), the plate is drawn as vector shapes / text right at the final size
+        val sc = scaledCar(car, Math.round(cw), Math.round(ch))
+        val bp = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+        if (!day && !light) {
+            // faint mirror of the car on the wet-looking night asphalt
+            val rl = cv.saveLayer(l, yc, l + cw, yc + ch * 0.3f, null)
+            cv.save(); cv.scale(1f, -1f, vx, yc); bp.alpha = 46; cv.drawBitmap(sc, null, RectF(l, top, l + cw, top + ch), bp); cv.restore()
+            bp.alpha = 255
+            val m = Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN); shader = LinearGradient(0f, yc, 0f, yc + ch * 0.3f, Color.BLACK, 0, Shader.TileMode.CLAMP) }
+            cv.drawRect(l, yc, l + cw, yc + ch * 0.3f, m)
+            cv.restoreToCount(rl)
+        }
+        cv.drawBitmap(sc, null, RectF(l, top, l + cw, top + ch), bp)
         drawPlate(cv, plate, l + cw * PLATE_CX, top + ch * PLATE_CY, cw * PLATE_W, ch * PLATE_H, day || light)
         val glow = Paint(Paint.ANTI_ALIAS_FLAG).apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.SCREEN) }
         for (i in 0..1) {
@@ -194,39 +208,67 @@ object RoadArt {
         }
     }
 
+    // ---------------------------------------------------------------- car scaling (quality)
+    private var carKey: String? = null; private var carScaled: Bitmap? = null
+
+    /** High-quality downscale: halve with filtering until < 2× the target, then one last filtered step. Cached per size. */
+    fun scaledCar(src: Bitmap, w: Int, h: Int): Bitmap {
+        if (w <= 0 || h <= 0 || (w >= src.width && h >= src.height)) return src
+        val key = "${System.identityHashCode(src)}|$w|$h"
+        carScaled?.let { if (key == carKey && !it.isRecycled) return it }
+        var b = src
+        while (b.width / 2 >= w && b.height / 2 >= h) {
+            val n = Bitmap.createScaledBitmap(b, b.width / 2, b.height / 2, true)
+            if (b !== src) b.recycle(); b = n
+        }
+        val out = Bitmap.createScaledBitmap(b, w, h, true)
+        if (b !== src && b !== out) b.recycle()
+        carScaled?.takeIf { it !== src }?.recycle(); carScaled = out; carKey = key
+        return out
+    }
+
     // ---------------------------------------------------------------- Kazakhstan plate
     private var plateKey: String? = null; private var plateBmp: Bitmap? = null
+    const val PW = 1040; const val PH = 224
 
-    /** Plate drawn at 520×112 "mm" scale ×2, cached per text, then mapped onto the tailgate with a slight keystone. */
+    /** v1.7.1: the plate is drawn as vectors directly at its on-screen size (sharp text), with a slight keystone. */
     private fun drawPlate(cv: Canvas, text: String, cx: Float, cy: Float, pw: Float, ph: Float, lit: Boolean) {
         if (text.isBlank()) return
-        val b = plateBitmap(text)
-        val src = floatArrayOf(0f, 0f, b.width.toFloat(), 0f, b.width.toFloat(), b.height.toFloat(), 0f, b.height.toFloat())
+        val src = floatArrayOf(0f, 0f, PW.toFloat(), 0f, PW.toFloat(), PH.toFloat(), 0f, PH.toFloat())
         val k = pw * 0.012f      // camera is above: the top edge is a touch closer → a hair wider
         val dst = floatArrayOf(cx - pw / 2 - k, cy - ph / 2, cx + pw / 2 + k, cy - ph / 2, cx + pw / 2, cy + ph / 2, cx - pw / 2, cy + ph / 2)
         val m = Matrix(); m.setPolyToPoly(src, 0, dst, 0, 4)
-        val p = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+        val p = Paint(Paint.ANTI_ALIAS_FLAG)
         // the plate sits in the recess: a thin shadow under it
-        p.color = 0x55000000; cv.drawRoundRect(RectF(cx - pw / 2, cy - ph / 2 + ph * 0.12f, cx + pw / 2, cy + ph / 2 + ph * 0.12f), ph * 0.12f, ph * 0.12f, p)
-        p.color = Color.BLACK   // opaque again (alpha of the shadow colour would make the plate translucent)
-        if (!lit) p.colorFilter = android.graphics.LightingColorFilter(0xFFDADADA.toInt(), 0)   // a bit dimmer at night
-        cv.save(); cv.concat(m); cv.drawBitmap(b, 0f, 0f, p); cv.restore()
+        p.color = 0x66000000; cv.drawRoundRect(RectF(cx - pw / 2, cy - ph / 2 + ph * 0.14f, cx + pw / 2, cy + ph / 2 + ph * 0.14f), ph * 0.14f, ph * 0.14f, p)
+        cv.save(); cv.concat(m)
+        plateShapes(cv, text, if (lit) 1f else 0.86f)
+        cv.restore()
     }
 
+    /** Raster copy (used by tests / previews). */
     fun plateBitmap(text: String): Bitmap {
         plateBmp?.let { if (plateKey == text && !it.isRecycled) return it }
-        val W = 1040; val H = 224
-        val b = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
-        val cv = Canvas(b); val p = Paint(Paint.ANTI_ALIAS_FLAG)
+        val b = Bitmap.createBitmap(PW, PH, Bitmap.Config.ARGB_8888)
+        plateShapes(Canvas(b), text, 1f)
+        plateBmp?.recycle(); plateBmp = b; plateKey = text
+        return b
+    }
+
+    /** KZ plate (520×112 mm, ×2): white field, black frame, sky-blue flag with sun and eagle, «KZ», number | region. */
+    private fun plateShapes(cv: Canvas, text: String, bright: Float) {
+        val W = PW; val H = PH
+        fun dim(c: Int) = if (bright >= 1f) c else Color.rgb((Color.red(c) * bright).toInt(), (Color.green(c) * bright).toInt(), (Color.blue(c) * bright).toInt())
+        val p = Paint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG)
         val r = RectF(4f, 4f, W - 4f, H - 4f)
-        p.color = Color.WHITE; cv.drawRoundRect(r, 20f, 20f, p)
+        p.color = dim(Color.WHITE); cv.drawRoundRect(r, 20f, 20f, p)
         p.style = Paint.Style.STROKE; p.strokeWidth = 12f; p.color = 0xFF111111.toInt()
         cv.drawRoundRect(RectF(12f, 12f, W - 12f, H - 12f), 16f, 16f, p); p.style = Paint.Style.FILL
         // left field: national flag (sky blue, golden sun with rays, eagle) and "KZ"
         val fx0 = 26f; val fx1 = 178f
-        p.color = 0xFF00AFCA.toInt(); cv.drawRect(fx0, 26f, fx1, 126f, p)
+        p.color = dim(0xFF00AFCA.toInt()); cv.drawRoundRect(RectF(fx0, 26f, fx1, 126f), 6f, 6f, p)
         val sx = (fx0 + fx1) / 2; val sy = 66f
-        p.color = 0xFFFEC50C.toInt()
+        p.color = dim(0xFFFEC50C.toInt())
         for (i in 0 until 16) {   // rays
             val a = Math.toRadians(i * 22.5); val r0 = 22f; val r1 = 32f
             cv.drawLine(sx + (r0 * cos(a)).toFloat(), sy + (r0 * sin(a)).toFloat(), sx + (r1 * cos(a)).toFloat(), sy + (r1 * sin(a)).toFloat(), p.apply { strokeWidth = 4f })
@@ -252,13 +294,11 @@ object RoadArt {
         val mx0 = fx1 + 10f; val mx1 = W - 12f - regionW - 10f
         p.textSize = 176f; fitText(p, main, mx1 - mx0 - 20f)
         cv.drawText(main, (mx0 + mx1) / 2, H / 2f + p.textSize * 0.36f, p)
-        plateBmp?.recycle(); plateBmp = b; plateKey = text
-        return b
     }
 
     private fun fitText(p: Paint, s: String, maxW: Float) { val w = p.measureText(s); if (w > maxW) p.textSize *= maxW / w }
 
-    fun release() { plateBmp?.recycle(); plateBmp = null; plateKey = null }
+    fun release() { plateBmp?.recycle(); plateBmp = null; plateKey = null; carScaled = null; carKey = null }
 
     fun view(c: Context, accent: Int, light: Boolean, carH: Float = 0.62f, maxCarW: Float = 0.44f, horizon: Float = 0.14f, ground: Float = 0.9f): RoadView =
         RoadView(c) { cv, w, h, day -> paint(c, cv, w, h, accent, light, carH, maxCarW, horizon, ground, day = day) }

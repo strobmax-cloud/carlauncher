@@ -67,8 +67,8 @@ class MediaTest {
         root.measure(View.MeasureSpec.makeMeasureSpec(1280, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(720, View.MeasureSpec.EXACTLY))
         root.layout(0, 0, 1280, 720)
     }
-    private fun start(): MainActivity {
-        val c = Robolectric.buildActivity(MainActivity::class.java).setup(); settle(); relayout(c.get().window.decorView); settle(); return c.get()
+    private fun start(): ClassicActivity {
+        val c = Robolectric.buildActivity(ClassicActivity::class.java).setup(); settle(); relayout(c.get().window.decorView); settle(); return c.get()
     }
     private fun all(v: View, out: ArrayList<View> = ArrayList()): ArrayList<View> { if (v.isShown) out.add(v); if (v is ViewGroup) for (k in 0 until v.childCount) all(v.getChildAt(k), out); return out }
     private fun texts(v: View) = all(v).filterIsInstance<TextView>().map { it.text.toString() }
@@ -152,11 +152,15 @@ class MediaTest {
         Prefs.lastVideo = File(films, "Интерстеллар.2014.1080p.mkv").path
         assertFalse(Prefs.tileVisible(8))
         val act = start()
-        act.show(MainActivity.MEDIA); settle(4); relayout(act.window.decorView); settle(2)
+        act.show(ClassicActivity.MEDIA); settle(4); relayout(act.window.decorView); settle(2)
+        save(act, "media-root")
         var t = texts(act.window.decorView)
         assertTrue(t.toString(), t.contains("ПРОДОЛЖИТЬ ПРОСМОТР"))
         assertTrue(t.contains("Интерстеллар.2014.1080p"))
-        assertTrue(t.contains("Фильмы")); assertTrue(t.contains("Дорога на дачу"))
+        assertTrue(t.toString(), t.contains("Фильмы"))
+        // v1.7.1: the list may need a scroll to the last row (floating volume margins) → check the adapter
+        val l0 = all(act.window.decorView).filterIsInstance<ListView>().first()
+        assertTrue((0 until l0.adapter.count).any { ((l0.adapter.getItem(it) as? Media.Entry)?.file?.name ?: "").startsWith("Дорога на дачу") })
         save(act, "media-root")
         val list = all(act.window.decorView).filterIsInstance<ListView>().first()
         val idx = (0 until list.adapter.count).first { (list.adapter.getItem(it) as? Media.Entry)?.file?.name == "Фильмы" }
@@ -173,7 +177,7 @@ class MediaTest {
         shadowOf(act).receiveResult(req.intent, Activity.RESULT_OK, Intent(Media.VLC_RESULT).putExtra("extra_position", 4_000_000L).putExtra("extra_duration", 10_140_000L))
         settle(2)
         assertTrue(texts(act.window.decorView).any { it.contains("с 1:06:40") })
-        Prefs.mediaKind = "music"; act.rebuild(); act.show(MainActivity.MEDIA); settle(4)
+        Prefs.mediaKind = "music"; act.rebuild(); act.show(ClassicActivity.MEDIA); settle(4)
         val l2 = all(act.window.decorView).filterIsInstance<ListView>().first()
         val mi = (0 until l2.adapter.count).first { (l2.adapter.getItem(it) as? Media.Entry)?.file?.name == "Музыка" }
         l2.performItemClick(null, mi, 0); settle(4); relayout(act.window.decorView); settle(2)
@@ -182,6 +186,6 @@ class MediaTest {
         Prefs.mediaKind = "video"; Prefs.setTileVisible(8, true); Prefs.layout = "cockpit"; act.rebuild(); act.show(0); settle(4); relayout(act.window.decorView); settle()
         val tile = all(act.window.decorView).filterIsInstance<TextView>().first { it.text == "Флешка" && (it.parent as View).hasOnClickListeners() }
         (tile.parent as View).performClick(); settle()
-        assertEquals(MainActivity.MEDIA, act.current)
+        assertEquals(ClassicActivity.MEDIA, act.current)
     }
 }

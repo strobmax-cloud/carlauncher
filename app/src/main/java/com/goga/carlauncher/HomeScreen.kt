@@ -39,7 +39,7 @@ import java.util.Locale
  * Home screen. Data (clock, GPS, trip, media session) is shared; the arrangement comes from Prefs.layout:
  * cockpit / map / media / arc / widgets / tiles. Each builder creates its own views and registers them as sinks.
  */
-class HomeScreen(a: MainActivity) : Screen(a) {
+class HomeScreen(a: ClassicActivity) : Screen(a) {
     companion object { const val TILE_ROW = 112; const val TILE_H = TILE_ROW * 2 + 16 }
     private val h = Handler(Looper.getMainLooper())
     private val ru = Locale("ru")
@@ -93,6 +93,7 @@ class HomeScreen(a: MainActivity) : Screen(a) {
     }
 
     private fun buildLayout(): View = when (layoutId) {
+        "screens" -> buildScreens()
         "cockpit" -> buildCockpit()
         "map" -> buildMap()
         "media" -> buildMediaLayout()
@@ -228,7 +229,7 @@ class HomeScreen(a: MainActivity) : Screen(a) {
         v.setOnClickListener {
             val p = Tiles.resolve(a, i).pkg
             if (p == null) Pickers.pickApp(a, i) { rebuildApps() }
-            else if (p == Tiles.INTERNAL_MEDIA) a.show(MainActivity.MEDIA)
+            else if (p == Tiles.INTERNAL_MEDIA) a.show(ClassicActivity.MEDIA)
             else if (i == 0 || Nav.isNav(p)) Nav.open(a, p)       // navigator → mini player over it (if enabled)
             else AppRepo.launch(a, p)
         }
@@ -903,9 +904,9 @@ class HomeScreen(a: MainActivity) : Screen(a) {
         panel.addView(num, Ui.lin(Ui.MATCH, Ui.WRAP).apply { topMargin = u(10) })
         panel.addView(Ui.text(a, 19, Ui.TEXT2, Ui.MEDIUM).apply { text = "км/ч"; gravity = Gravity.CENTER }, Ui.lin(Ui.MATCH, Ui.WRAP).apply { topMargin = u(2) })
         speedSinks.add(TextSpeed(num, st, Ui.TEXT))
-        panel.addView(road(t.accent, light, carH = 0.66f, maxCarW = 0.5f, horizon = 0.08f, ground = 0.88f), Ui.lin(Ui.MATCH, 0, 1f).apply { topMargin = u(10); bottomMargin = u(6) })
+        panel.addView(road(t.accent, light, carH = 0.84f, maxCarW = 0.74f, horizon = 0.06f, ground = 0.9f), Ui.lin(Ui.MATCH, 0, 1f).apply { topMargin = u(10); bottomMargin = u(6) })
         panel.addView(Ui.text(a, 13, Ui.TEXT3, Ui.MEDIUM).apply { text = "SUZUKI SX4 S-CROSS"; gravity = Gravity.CENTER; letterSpacing = 0.3f }, Ui.lin(Ui.MATCH, Ui.WRAP).apply { bottomMargin = u(4) })
-        top.addView(panel, Ui.lin(u(360), Ui.MATCH))
+        top.addView(panel, Ui.lin(u(390), Ui.MATCH))
 
         val mapBox = FrameLayout(a)
         mapBox.addView(if (Prefs.showOsmMap) newMap(0) else NavCardView(a, t.accent, light).also { navClick(it); if (Prefs.camTile) it.setPadding(0, 0, u(300), u(110)) else it.setPadding(0, 0, 0, u(110)) }, FrameLayout.LayoutParams(Ui.MATCH, Ui.MATCH))
@@ -971,7 +972,7 @@ class HomeScreen(a: MainActivity) : Screen(a) {
         val ring = RingGauge(a, t.accent, bg = 0x40000000, numberSize = 46, showCaption = false)
         gpsClick(ring); speedSinks.add(ring)
         hero.addView(ring, FrameLayout.LayoutParams(u(150), u(150), Gravity.TOP or Gravity.END).apply { setMargins(0, u(24), u(24), 0) })
-        hero.addView(road(t.accent, light, carH = 0.74f, maxCarW = 0.4f, horizon = 0.06f, ground = 0.9f), FrameLayout.LayoutParams(Ui.MATCH, u(300), Gravity.BOTTOM).apply { setMargins(0, 0, 0, u(84)) })
+        hero.addView(road(t.accent, light, carH = 0.86f, maxCarW = 0.46f, horizon = 0.05f, ground = 0.92f), FrameLayout.LayoutParams(Ui.MATCH, u(340), Gravity.BOTTOM).apply { setMargins(0, 0, 0, u(84)) })
         val chips = Ui.hbox(a)
         val chipSt = NavStyle(Color.WHITE, Ui.alpha(Color.WHITE, 0.7f), 0x2EFFFFFF, 0x55FFFFFF, Color.WHITE, 22, Ui.BOLD)
         navEntries().forEach { e -> chips.addView(navPill(e, chipSt, 48, 24, 16), Ui.lin(Ui.WRAP, u(48)).apply { rightMargin = u(10) }) }
@@ -1297,7 +1298,7 @@ class HomeScreen(a: MainActivity) : Screen(a) {
         if (Prefs.camTile) left.addView(camPill(dashNav(d), 56, 30, 17), Ui.lin(Ui.MATCH, u(56)).apply { topMargin = u(10) })
         bin.addView(left, Ui.lin(u(250), Ui.MATCH))
         val ctr = FrameLayout(a)
-        ctr.addView(road(d.accent, d.light, carH = 0.5f, maxCarW = 0.4f, horizon = 0.36f, ground = 0.93f), FrameLayout.LayoutParams(Ui.MATCH, Ui.MATCH))
+        ctr.addView(road(d.accent, d.light, carH = 0.64f, maxCarW = 0.5f, horizon = 0.3f, ground = 0.95f), FrameLayout.LayoutParams(Ui.MATCH, Ui.MATCH))
         ctr.addView(speedText(d, 104, 15), FrameLayout.LayoutParams(Ui.WRAP, Ui.WRAP, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = u(2) })
         bin.addView(ctr, Ui.lin(0, Ui.MATCH, 1f).apply { leftMargin = u(10); rightMargin = u(10) })
         val right = Ui.vbox(a).apply { gravity = Gravity.CENTER }
@@ -1468,7 +1469,7 @@ class HomeScreen(a: MainActivity) : Screen(a) {
         }, FrameLayout.LayoutParams(Ui.MATCH, Ui.MATCH))
         val row = Ui.hbox(a).apply { setPadding(u(24), u(20), u(20), u(14)) }
         val stage = FrameLayout(a)
-        stage.addView(road(d.accent, d.light, carH = 0.7f, maxCarW = 0.38f, horizon = 0.1f, ground = 0.92f), FrameLayout.LayoutParams(Ui.MATCH, u(430), Gravity.TOP).apply { topMargin = u(104) })
+        stage.addView(road(d.accent, d.light, carH = 0.84f, maxCarW = 0.5f, horizon = 0.08f, ground = 0.94f), FrameLayout.LayoutParams(Ui.MATCH, u(460), Gravity.TOP).apply { topMargin = u(90) })
         val tl = Ui.vbox(a)
         tl.addView(clockText(92, d.fg, 60).apply { typeface = Typeface.create("sans-serif-thin", Typeface.NORMAL); includeFontPadding = false })
         tl.addView(dateText(18, d.fg2))
@@ -1503,11 +1504,224 @@ class HomeScreen(a: MainActivity) : Screen(a) {
     }
 
     // ====================================================================================
+    // v1.7.1 ЭКРАНЫ (default): «Главная / Музыка / Камера», swiped horizontally, big switcher on top + page dots
+    // ====================================================================================
+    private var pager: HomePager? = null
+    private val segBtns = ArrayList<LinearLayout>()
+    private var dots: PageDots? = null
+    private var segAccent = 0
+    private var segFg = Color.WHITE
+    val pageCount: Int get() = pager?.childCount ?: 0
+    val currentPage: Int get() = pager?.page ?: 0
+    /** Jump to a page (switcher buttons, «Главная» in the menu, ‹ › in the menu). */
+    fun goPage(i: Int, animate: Boolean = true) { val p = pager ?: return; p.go(if (p.childCount == 0) 0 else ((i % p.childCount) + p.childCount) % p.childCount, animate); markPage(p.page) }
+    private fun markPage(i: Int) {
+        Prefs.homePage = i
+        dots?.current = i
+        segBtns.forEachIndexed { k, b ->
+            val on = k == i
+            b.background = Ui.pressable(if (on) segAccent else 0, u(26), if (on) Ui.blend(segAccent, 0x40000000) else Ui.alpha(segFg, 0.16f))
+            b.isSelected = on
+            val fg = if (on) Color.WHITE else Ui.alpha(segFg, 0.8f)
+            (b.getChildAt(0) as? ImageView)?.imageTintList = android.content.res.ColorStateList.valueOf(fg)
+            (b.getChildAt(1) as? TextView)?.setTextColor(fg)
+        }
+    }
+
+    /** Big quick button: icon + label, ≥ 84 dp high. */
+    private fun bigBtn(d: DashCtx, icon: Int, label: String, onClick: () -> Unit): LinearLayout {
+        val b = Ui.hbox(a).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(u(18), 0, u(14), 0); minimumHeight = u(84) }
+        b.background = Ui.pressable(d.card, u(24), d.cardPr)
+        b.addView(Ui.icon(a, icon, d.accent), Ui.lin(u(40), u(40)))
+        b.addView(Ui.text(a, 21, d.fg, Ui.MEDIUM, 2).apply { text = label }, Ui.lin(0, Ui.WRAP, 1f).apply { leftMargin = u(14) })
+        b.isClickable = true; b.contentDescription = label.replace("\n", " "); b.setOnClickListener { onClick() }
+        return b
+    }
+
+    private fun buildScreens(): View {
+        val d = dashCtx()
+        segAccent = d.accent; segFg = d.fg
+        val pages = ArrayList<Pair<String, Int>>()
+        pages.add("Главная" to R.drawable.ic_home); pages.add("Музыка" to R.drawable.ic_music)
+        if (Prefs.camPage) pages.add("Камера" to R.drawable.ic_videocam)
+
+        val root = Ui.vbox(a)
+        // switcher: always visible, three big segments (icon + label), the active one filled with the accent
+        val seg = Ui.hbox(a).apply { gravity = Gravity.CENTER; setPadding(u(6), u(6), u(6), u(6)); background = Ui.round(if (d.light) 0x1A000000 else 0x99000000.toInt(), u(32)) }
+        segBtns.clear()
+        pages.forEachIndexed { i, (label, icon) ->
+            val b = Ui.hbox(a).apply { gravity = Gravity.CENTER; setPadding(u(22), 0, u(26), 0); isClickable = true; contentDescription = "Экран «$label»" }
+            b.addView(Ui.icon(a, icon, d.fg), Ui.lin(u(34), u(34)))
+            b.addView(Ui.text(a, 22, d.fg, Ui.BOLD, 1).apply { text = label }, Ui.lin(Ui.WRAP, Ui.WRAP).apply { leftMargin = u(10) })
+            b.setOnClickListener { goPage(i) }
+            segBtns.add(b)
+            seg.addView(b, Ui.lin(u(220), u(68)).apply { if (i > 0) leftMargin = u(6) })
+        }
+        val head = FrameLayout(a)
+        head.addView(seg, FrameLayout.LayoutParams(Ui.WRAP, Ui.WRAP, Gravity.CENTER_HORIZONTAL))
+        root.addView(head, Ui.lin(Ui.MATCH, Ui.WRAP).apply { topMargin = u(10) })
+        val dt = PageDots(a, pages.size, d.accent, Ui.alpha(d.fg, 0.3f)); dots = dt
+        root.addView(dt, Ui.lin(Ui.MATCH, u(14)).apply { topMargin = u(6) })
+
+        val pg = HomePager(a); pager = pg
+        pg.addView(pageHome(d, pg))
+        pg.addView(pageMusic())
+        if (Prefs.camPage) pg.addView(pageCamera(d))
+        pg.onPage = { markPage(it) }
+        root.addView(pg, Ui.lin(Ui.MATCH, 0, 1f))
+        val start = Prefs.homePage.coerceIn(0, pages.size - 1)
+        pg.go(start, false); markPage(start)
+        return root
+    }
+
+    // ---- screen 1 «Главная»: clock/date, quick buttons, compact now-playing strip, dock apps ----
+    private var stripArt: CoverView? = null
+    private var stripTitle: TextView? = null
+    private var stripArtist: TextView? = null
+    private var stripPlay: ImageView? = null
+    private fun syncStrip() {
+        val t = stripTitle ?: return
+        if (!::titleTv.isInitialized || !::playIv.isInitialized) return
+        t.text = titleTv.text
+        stripArtist?.text = listOf(srcTv.text, artistTv.text).filter { it.isNotBlank() }.joinToString(" · ")
+        stripPlay?.setImageDrawable(playIv.drawable)
+        val sa = stripArt ?: return
+        val b = lastArt
+        if (b != null && !idle) { sa.setPadding(0, 0, 0, 0); sa.scaleType = ImageView.ScaleType.CENTER_CROP; sa.setCover(b) }
+        else {
+            sa.setCover(null); sa.placeholderPad = 0.26f; sa.placeholderBg = Ui.alpha(Color.WHITE, 0.08f); sa.scaleType = ImageView.ScaleType.FIT_CENTER
+            sa.setImageResource(if (radioArt) R.drawable.tile_radio else if (phoneArt) R.drawable.tile_phone else R.drawable.tile_music)
+        }
+    }
+
+    private fun pageHome(d: DashCtx, pg: HomePager): View {
+        val p = Ui.vbox(a).apply { setPadding(u(20), u(10), u(20), u(12)) }
+        val top = Ui.hbox(a).apply { gravity = Gravity.CENTER_VERTICAL }
+        val left = Ui.vbox(a).apply { gravity = Gravity.CENTER_VERTICAL }
+        left.addView(clockText(118, d.fg, 70).apply { typeface = Typeface.create("sans-serif-light", Typeface.NORMAL); includeFontPadding = false; maxLines = 1 }, Ui.lin(Ui.MATCH, Ui.WRAP))
+        left.addView(dateText(26, d.fg2).apply { maxLines = 1 }, Ui.lin(Ui.MATCH, Ui.WRAP).apply { topMargin = u(2) })
+        val sp = Ui.hbox(a).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(u(16), 0, u(20), 0); background = Ui.round(d.card, u(24)) }
+        val num = Ui.text(a, 30, d.fg, Ui.BOLD).apply { text = "—" }
+        sp.addView(Ui.icon(a, R.drawable.ic_speed, d.accent), Ui.lin(u(30), u(30)))
+        sp.addView(num, Ui.lin(Ui.WRAP, Ui.WRAP).apply { leftMargin = u(10) })
+        sp.addView(Ui.text(a, 18, d.fg2, Ui.MEDIUM).apply { text = " км/ч" })
+        speedSinks.add(TextSpeed(num, null, d.fg)); gpsClick(sp)
+        left.addView(sp, Ui.lin(Ui.WRAP, u(64)).apply { topMargin = u(14) })
+        top.addView(left, Ui.lin(0, Ui.WRAP, 1f))
+        // quick buttons 2 × 2
+        val grid = Ui.vbox(a)
+        val nav = navEntries().first()
+        fun row(b1: View, b2: View) = Ui.hbox(a).apply {
+            addView(b1, Ui.lin(0, u(88), 1f)); addView(b2, Ui.lin(0, u(88), 1f).apply { leftMargin = u(12) })
+        }
+        val navB = bigBtn(d, R.drawable.ic_nav, "Навигатор") { }; bindNav(navB, nav)
+        val camB = bigBtn(d, R.drawable.ic_videocam, "Камера") { if (Prefs.camPage) goPage(2) else CamApps.openCamera(a) }
+        grid.addView(row(navB, camB))
+        grid.addView(row(bigBtn(d, R.drawable.ic_bt_switch, "Сменить\nтелефон") { Rail.run(a, "phone") },
+            bigBtn(d, R.drawable.ic_wifi, "Wi-Fi") { Rail.run(a, "wifi") }), Ui.lin(Ui.MATCH, Ui.WRAP).apply { topMargin = u(12) })
+        top.addView(grid, Ui.lin(u(500), Ui.WRAP).apply { leftMargin = u(20) })
+        p.addView(top, Ui.lin(Ui.MATCH, 0, 1f))
+
+        // compact now-playing strip (mirrors the «Музыка» screen; tap → that screen)
+        val st = Ui.hbox(a).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(u(12), u(10), u(14), u(10)) }
+        st.background = Ui.pressable(d.card, u(26), d.cardPr)
+        st.isClickable = true; st.contentDescription = "Сейчас играет"; st.setOnClickListener { goPage(1) }
+        val sa = CoverView(a, true).apply { radiusPx = u(16).toFloat(); shadow = false }; stripArt = sa
+        st.addView(sa, Ui.lin(u(84), u(84)))
+        val tx = Ui.vbox(a).apply { setPadding(u(16), 0, u(10), 0) }
+        stripTitle = Ui.text(a, 24, d.fg, Ui.BOLD, 1).apply { ellipsize = android.text.TextUtils.TruncateAt.END }
+        stripArtist = Ui.text(a, 17, d.fg2, Ui.SANS, 1).apply { ellipsize = android.text.TextUtils.TruncateAt.END }
+        tx.addView(stripTitle); tx.addView(stripArtist, Ui.lin(Ui.MATCH, Ui.WRAP).apply { topMargin = u(4) })
+        st.addView(tx, Ui.lin(0, Ui.WRAP, 1f))
+        val bb = Ui.alpha(d.fg, 0.12f); val bp = Ui.alpha(d.fg, 0.26f)
+        st.addView(Ui.iconButton(a, R.drawable.ic_prev, 80, 36, bb, d.fg, bp) { media(KeyEvent.KEYCODE_MEDIA_PREVIOUS) }.apply { contentDescription = "Предыдущий" })
+        val pl = Ui.iconButton(a, R.drawable.ic_play, 88, 42, d.accent, Color.WHITE, Ui.blend(d.accent, 0x40000000)) { media(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) }.apply { contentDescription = "Играть / пауза" }
+        stripPlay = pl.getChildAt(0) as ImageView
+        st.addView(pl, (pl.layoutParams as LinearLayout.LayoutParams).apply { leftMargin = u(12); rightMargin = u(12) })
+        st.addView(Ui.iconButton(a, R.drawable.ic_next, 80, 36, bb, d.fg, bp) { media(KeyEvent.KEYCODE_MEDIA_NEXT) }.apply { contentDescription = "Следующий" })
+        p.addView(st, Ui.lin(Ui.MATCH, Ui.WRAP).apply { topMargin = u(12) })
+
+        // the most-used apps (the dock tiles)
+        p.addView(dashDock(d, 76, 15), Ui.lin(Ui.MATCH, Ui.WRAP).apply { topMargin = u(14) })
+        @Suppress("UNUSED_VARIABLE") val unused = pg
+        return p
+    }
+
+    // ---- screen 2 «Музыка»: big sharp cover, track info, big controls; colours from the cover ----
+    private var musicBg: View? = null
+    private var musicPlayBtn: View? = null
+    private var lastArt: Bitmap? = null
+    private var musicGen = 0
+    private fun pageMusic(): View {
+        val f = FrameLayout(a)
+        val bg = View(a); musicBg = bg
+        f.addView(bg, FrameLayout.LayoutParams(Ui.MATCH, Ui.MATCH))
+        tintMusic(null)
+        val row = Ui.hbox(a).apply { setPadding(u(24), u(12), u(24), u(16)); gravity = Gravity.CENTER_VERTICAL }
+        clickableMedia(row)
+        mediaTexts(17, 44, 26, 2); artPad = 0.26f
+        val art = FrameLayout(a)
+        art.addView(mediaArt(true, 30), FrameLayout.LayoutParams(Ui.WRAP, Ui.MATCH))
+        row.addView(art, Ui.lin(Ui.WRAP, Ui.MATCH))
+        val col = Ui.vbox(a).apply { setPadding(u(34), u(6), 0, u(4)) }
+        col.addView(srcTv)
+        col.addView(titleTv, Ui.lin(Ui.MATCH, Ui.WRAP).apply { topMargin = u(12) })
+        col.addView(artistTv, Ui.lin(Ui.MATCH, Ui.WRAP).apply { topMargin = u(8) })
+        col.addView(View(a), Ui.lin(1, 0, 1f))
+        col.addView(progress(true, 8), Ui.lin(Ui.MATCH, Ui.WRAP).apply { bottomMargin = u(16) })
+        val ctl = controls(104, 132, 28, 46, 60)
+        musicPlayBtn = playIv.parent as? View
+        tintMusic(null)
+        col.addView(ctl, Ui.lin(Ui.WRAP, Ui.WRAP))
+        val extra = Ui.hbox(a)
+        fun pill(icon: Int, label: String, onClick: () -> Unit) = Ui.hbox(a).apply {
+            gravity = Gravity.CENTER; setPadding(u(18), 0, u(22), 0); background = Ui.pressable(0x33FFFFFF, u(36), 0x55FFFFFF)
+            addView(Ui.icon(a, icon, Color.WHITE), Ui.lin(u(30), u(30)))
+            addView(Ui.text(a, 19, Color.WHITE, Ui.MEDIUM, 1).apply { text = label }, Ui.lin(Ui.WRAP, Ui.WRAP).apply { leftMargin = u(10) })
+            isClickable = true; contentDescription = label; setOnClickListener { onClick() }
+        }
+        extra.addView(pill(R.drawable.ic_music, "Источник") { chooseSource() }, Ui.lin(Ui.WRAP, u(72)))
+        extra.addView(pill(R.drawable.ic_apps, "Открыть плеер") { mediaCard.performClick() }, Ui.lin(Ui.WRAP, u(72)).apply { leftMargin = u(12) })
+        col.addView(extra, Ui.lin(Ui.WRAP, Ui.WRAP).apply { topMargin = u(18) })
+        row.addView(col, Ui.lin(0, Ui.MATCH, 1f))
+        f.addView(row, FrameLayout.LayoutParams(Ui.MATCH, Ui.MATCH))
+        return f
+    }
+
+    /** Background + play button + progress in the cover colour (calm dark tint so white text always reads). */
+    private fun tintMusic(c: Int?) {
+        val bg = musicBg ?: return
+        val base = c ?: T.accent
+        val hsv = FloatArray(3); Color.colorToHSV(base, hsv)
+        val deep = Color.HSVToColor(0xE6, floatArrayOf(hsv[0], (hsv[1] * 0.8f).coerceAtMost(0.75f), 0.30f))
+        val dark = Color.HSVToColor(0xF2, floatArrayOf(hsv[0], (hsv[1] * 0.6f).coerceAtMost(0.6f), 0.08f))
+        bg.background = android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR, intArrayOf(deep, dark))
+        val vivid = Color.HSVToColor(floatArrayOf(hsv[0], hsv[1].coerceIn(0.45f, 0.9f), hsv[2].coerceIn(0.7f, 0.95f)))
+        musicPlayBtn?.background = Ui.pressableOval(vivid, Ui.blend(vivid, 0x40000000))
+        if (::progBar.isInitialized) progBar.setFill(vivid)
+        if (::srcTv.isInitialized) srcTv.setTextColor(Ui.blend(vivid, 0x66FFFFFF))
+    }
+
+    // ---- screen 3 «Камера»: rear camera tile / Cam REC + speedometer ----
+    private fun pageCamera(d: DashCtx): View {
+        val row = Ui.hbox(a).apply { setPadding(u(20), u(10), u(20), u(16)) }
+        row.addView(cameraTile(28), Ui.lin(0, Ui.MATCH, 1.5f))
+        val right = Ui.vbox(a).apply { gravity = Gravity.CENTER_HORIZONTAL; setPadding(u(18), u(18), u(18), u(18)); background = Ui.round(d.card, u(28)) }
+        right.addView(speedText(d, 150, 22), Ui.lin(Ui.MATCH, 0, 1f))
+        right.addView(clockText(48, d.fg).apply { gravity = Gravity.CENTER; maxLines = 1 }, Ui.lin(Ui.MATCH, Ui.WRAP))
+        right.addView(bigBtn(d, R.drawable.ic_videocam, "Записи\nрегистратора") { Rail.run(a, "dvr") }, Ui.lin(Ui.MATCH, u(84)).apply { topMargin = u(14) })
+        right.addView(bigBtn(d, R.drawable.ic_videocam, "Открыть\nкамеру") { CamApps.openCamera(a) }, Ui.lin(Ui.MATCH, u(84)).apply { topMargin = u(12) })
+        row.addView(right, Ui.lin(0, Ui.MATCH, 1f).apply { leftMargin = u(16) })
+        return row
+    }
+
+    // ====================================================================================
     // media art
     // ====================================================================================
     private fun setIdle(v: Boolean) {
         idle = v
-        if (v) { artKey = null; artGen++; showArtPlaceholder(); Wallpaper.setCover(null) }
+        if (v) { artKey = null; artGen++; lastArt = null; showArtPlaceholder(); Wallpaper.setCover(null); tintMusic(null) }
+        syncStrip()
     }
 
     private fun showArtPlaceholder() {
@@ -1530,6 +1744,11 @@ class HomeScreen(a: MainActivity) : Screen(a) {
         val cvw = artIv as? CoverView
         if (cvw != null) cvw.setCover(b) else artIv.setImageBitmap(b)
         Wallpaper.setCover(b)
+        lastArt = b; syncStrip()
+        if (musicBg != null) {   // «Музыка» screen recolours with every cover (tiny sample, off the UI thread)
+            val g = ++musicGen
+            AppRepo.exec.execute { val c = try { CoverColor.pick(b) } catch (_: Throwable) { null }; AppRepo.main.post { if (g == musicGen) tintMusic(c) } }
+        }
     }
 
     private fun fmt(ms: Long): String { val t = ms / 1000; return "%d:%02d".format(t / 60, t % 60) }
@@ -1618,12 +1837,13 @@ class HomeScreen(a: MainActivity) : Screen(a) {
 
     // ---------------- media (v1.7.0: MediaHub follows every session, shows the one that plays) ----------------
     private val controller: MediaController? get() = MediaHub.current
-    private val hubListener: () -> Unit = { if (MediaHub.access || MediaHub.radioActive() || MediaHub.phoneActive()) updateMedia() else noAccess() }
+    private val hubListener: () -> Unit = { if (MediaHub.access || MediaHub.radioActive() || MediaHub.phoneActive()) updateMedia() else noAccess(); syncStrip() }
 
     private fun listenerEnabled(): Boolean = MediaHub.listenerEnabled(a)
 
     private fun startMedia() {
         if (!MediaHub.attach(a, hubListener) && !MediaHub.radioActive() && !MediaHub.phoneActive()) noAccess() else updateMedia()
+        syncStrip()
     }
 
     private fun stopMedia() { MediaHub.detach(hubListener) }

@@ -20,7 +20,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import com.goga.carlauncher.Ui.u
 
-class AppsScreen(a: MainActivity) : Screen(a) {
+class AppsScreen(a: ClassicActivity) : Screen(a) {
     private var all: List<AppRepo.App> = emptyList()
     private var shown: List<AppRepo.App> = emptyList()
     private lateinit var search: EditText

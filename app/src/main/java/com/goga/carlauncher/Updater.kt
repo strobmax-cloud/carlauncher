@@ -119,6 +119,20 @@ object Updater {
         return Check(true, "Car Launcher ${pi.versionName} — подпись ваша ✓", pi.versionName, code)
     }
 
+    /**
+     * v1.7.1: an update APK is never kept. On every start (= also right after a successful update, the app restarts)
+     * the installer files the updater downloaded / the phone upload saved (app cache, private dirs) are deleted.
+     * Files the user put in Download himself are NOT touched (a previous APK there is the rollback). Returns bytes freed.
+     */
+    fun cleanupLeftovers(c: Context): Long {
+        var freed = 0L
+        fun del(f: File) { val n = f.length(); if (f.delete()) freed += n }
+        try {
+            listOfNotNull(c.cacheDir, c.externalCacheDir, c.filesDir).forEach { d -> d.listFiles()?.filter { it.isFile && it.name.endsWith(".apk", true) }?.forEach { del(it) } }
+        } catch (_: Throwable) {}
+        return freed
+    }
+
     /** «Install unknown apps» for the launcher; explains and opens the system page if it is off. */
     fun ensureAllowed(a: Activity): Boolean {
         if (a.packageManager.canRequestPackageInstalls()) return true

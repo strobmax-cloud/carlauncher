@@ -27,11 +27,23 @@ object Prefs {
     /** Home arrangement id, see Layouts. */
     var layout: String
         get() {
-            val v = sp.getString("layout", "cockpit") ?: "cockpit"
-            Layouts.RETIRED[v]?.let { sp.edit().putString("layout", it).remove("nordicLight").apply(); return it }   // v1.6.1: «Скандинавский» removed
-            return v
+            val v = sp.getString("layout", Layouts.SCREENS.id) ?: Layouts.SCREENS.id
+            Layouts.RETIRED[v]?.let { sp.edit().putString("layout", it).remove("nordicLight").apply(); return if (classic) it else Layouts.SCREENS.id }   // v1.6.1: «Скандинавский» removed
+            // v1.7.1: the new swipeable screens are the default; the 14 old layouts only with «Классические раскладки»
+            return if (v == Layouts.SCREENS.id || !classic) Layouts.SCREENS.id else v
         }
-        set(v) = sp.edit().putString("layout", v).apply()
+        set(v) = sp.edit().putString("layout", v).apply { if (v != Layouts.SCREENS.id) putBoolean("classic", true) }.apply()
+    /** v1.7.1 «Классические раскладки» (off → the new home screens; 1.7.0 users land on the screens too). */
+    var classic: Boolean
+        get() = sp.getBoolean("classic", false)
+        set(v) = sp.edit().putBoolean("classic", v).apply()
+    /** v1.7.1 home screens: last page shown (0 Главная, 1 Музыка, 2 Камера) and whether «Камера» is there. */
+    var homePage: Int
+        get() = sp.getInt("homepage", 0)
+        set(v) = sp.edit().putInt("homepage", v).apply()
+    var camPage: Boolean
+        get() = sp.getBoolean("campage", true)
+        set(v) = sp.edit().putBoolean("campage", v).apply()
     var lastLat: Float
         get() = sp.getFloat("lat", Float.NaN)
         set(v) = sp.edit().putFloat("lat", v).apply()
@@ -75,11 +87,11 @@ object Prefs {
     var rightCard: String
         get() = "music"
         set(@Suppress("UNUSED_PARAMETER") v) { sp.edit().remove("rightcard").apply() }
-    /** v1.5: background while music plays — "cover" (blurred album art, computed once per track) or "wall" (my wallpaper). */
+    /** Background while music plays — "cover" (blurred album art), "sharp" (v1.7.1: the cover itself, not blurred) or "wall" (my wallpaper). */
     var bgMode: String
-        get() = sp.getString("bgmode", null) ?: if (sp.getBoolean("coverwp", true)) "cover" else "wall"
+        get() = (sp.getString("bgmode", null) ?: if (sp.getBoolean("coverwp", true)) "cover" else "wall").let { if (it in setOf("cover", "sharp", "wall")) it else "cover" }
         set(v) = sp.edit().putString("bgmode", v).apply()
-    val coverWallpaper: Boolean get() = bgMode == "cover"
+    val coverWallpaper: Boolean get() = bgMode != "wall"
 
     /** v1.5: built-in OpenStreetMap preview; off by default (2GIS / Yandex do the real navigation). */
     var showOsmMap: Boolean
@@ -155,9 +167,9 @@ object Prefs {
     var volSide: String
         get() = str("volside", "both").let { if (it in setOf("both", "left", "right")) it else "both" }
         set(v) = put("volside", v)
-    /** Volume method: "auto" (Android volume, falls back if it has no effect), "stream", "suggested", "key". */
+    /** Volume method: "auto" or one of [Volume.METHODS] (v1.7.1: TEYES/FYT vendor service first). */
     var volMethod: String
-        get() = str("volmethod", "auto").let { if (it in setOf("auto", "stream", "suggested", "key")) it else "auto" }
+        get() = str("volmethod", "auto").let { if (it in Volume.IDS) it else "auto" }
         set(v) = put("volmethod", v)
     /** Global accent colour id ("" = as in the theme), see Accents. */
     var accent: String
@@ -213,4 +225,37 @@ object Prefs {
     var notifHints: Int
         get() = sp.getInt("notifhints", 0)
         set(v) = sp.edit().putInt("notifhints", v).apply()
+
+    // ---------------- v1.7.1 ----------------
+    /** Accent colour taken from the album cover while music plays (off by default). */
+    var coverAccent: Boolean
+        get() = sp.getBoolean("coveraccent", false)
+        set(v) = sp.edit().putBoolean("coveraccent", v).apply()
+    /** Floating volume buttons: vertical position "center" (default), "bottom", "top". */
+    var volPos: String
+        get() = str("volpos", "center").let { if (it in setOf("bottom", "center", "top")) it else "center" }
+        set(v) = put("volpos", v)
+    /** Floating volume buttons size (design px), 64…96. */
+    var volSize: Int
+        get() = sp.getInt("volsize", 76).coerceIn(60, 100)
+        set(v) = sp.edit().putInt("volsize", v).apply()
+    /** Floating «Назад / Домой» bubble over other apps (overlay permission). Off by default. */
+    var floatNav: Boolean
+        get() = sp.getBoolean("floatnav", false)
+        set(v) = sp.edit().putBoolean("floatnav", v).apply()
+    var floatX: Int
+        get() = sp.getInt("floatx", -1)
+        set(v) = sp.edit().putInt("floatx", v).apply()
+    var floatY: Int
+        get() = sp.getInt("floaty", -1)
+        set(v) = sp.edit().putInt("floaty", v).apply()
+    /** One-time migrations done (bit set). */
+    var migrated: Int
+        get() = sp.getInt("migrated", 0)
+        set(v) = sp.edit().putInt("migrated", v).apply()
+    /** v1.7.1 size of the side menu / dock and its buttons: "normal" (1.7.0), "large" (+25 %, default), "xlarge" (+45 %). */
+    var railSize: String
+        get() = str("railsize", "large").let { if (it in setOf("normal", "large", "xlarge")) it else "large" }
+        set(v) = put("railsize", v)
+    val railScale: Float get() = when (railSize) { "normal" -> 1f; "xlarge" -> 1.45f; else -> 1.25f }
 }

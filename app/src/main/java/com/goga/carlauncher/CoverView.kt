@@ -42,7 +42,7 @@ class CoverView(c: Context, private val square: Boolean) : ImageView(c) {
     private val barP = Paint(Paint.ANTI_ALIAS_FLAG); private val haloP = Paint(Paint.ANTI_ALIAS_FLAG); private val refP = Paint(Paint.ANTI_ALIAS_FLAG)
     private val scrimP = Paint(Paint.ANTI_ALIAS_FLAG); private val br = RectF(); private val clip = Path()
 
-    override fun onAttachedToWindow() { super.onAttachedToWindow(); if (Prefs.musicFx == "bars") MusicFx.live.add(this) }
+    override fun onAttachedToWindow() { super.onAttachedToWindow() }
     override fun onDetachedFromWindow() { super.onDetachedFromWindow(); MusicFx.live.remove(this); shadowBmp?.recycle(); shadowBmp = null }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -107,11 +107,11 @@ class CoverView(c: Context, private val square: Boolean) : ImageView(c) {
         rim.shader = LinearGradient(0f, rr.top, 0f, rr.bottom, 0x40FFFFFF, 0x26000000, Shader.TileMode.CLAMP)
         val i = rim.strokeWidth / 2
         drawShape(cv, RectF(rr.left + i, rr.top + i, rr.right - i, rr.bottom - i), rim)
-        if (MusicFx.on && Prefs.musicFx == "bars") drawBars(cv, rr)
+        // v1.7.1: the spectrum bars are no longer drawn over the artwork (SideBars at the screen edges instead)
     }
 
     /** v1.6.3 «Столбики»: thin rounded spectrum bars in the lower part of the cover, accent gradient, halo, faint reflection. */
-    private fun drawBars(cv: Canvas, rr: RectF) {
+    @Suppress("unused") private fun drawBars(cv: Canvas, rr: RectF) {
         val lv = MusicFx.shown; val n = lv.size
         var peak = 0f; for (v in lv) if (v > peak) peak = v
         if (peak < 0.01f) return
