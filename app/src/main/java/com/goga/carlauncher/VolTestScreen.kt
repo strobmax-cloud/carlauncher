@@ -13,7 +13,7 @@ import com.goga.carlauncher.Ui.u
  * readout (Android music level + the unit's own level from com.syu.ms). «Выбрать» remembers the method for the volume
  * buttons; «Авто» goes back to the automatic choice.
  */
-class VolTestScreen(a: MainActivity) : Screen(a) {
+class VolTestScreen(a: ClassicActivity) : Screen(a) {
     private lateinit var readTv: TextView
     private lateinit var lastTv: TextView
     private lateinit var list: LinearLayout

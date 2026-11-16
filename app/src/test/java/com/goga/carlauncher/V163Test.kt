@@ -34,8 +34,8 @@ class V163Test {
         root.measure(View.MeasureSpec.makeMeasureSpec(root.width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(root.height, View.MeasureSpec.EXACTLY)); root.layout(0, 0, root.width, root.height)
     }
     private fun all(v: View): List<View> = if (v is ViewGroup) listOf(v) + (0 until v.childCount).flatMap { all(v.getChildAt(it)) } else listOf(v)
-    private fun home(a: MainActivity) = (MainActivity::class.java.getDeclaredField("screens").apply { isAccessible = true }.get(a) as Array<*>)[0] as HomeScreen
-    private fun play(a: MainActivity) {
+    private fun home(a: ClassicActivity) = (ClassicActivity::class.java.getDeclaredField("screens").apply { isAccessible = true }.get(a) as Array<*>)[0] as HomeScreen
+    private fun play(a: ClassicActivity) {
         val h = home(a)
         fun call(n: String, t: Class<*>, arg: Any) = HomeScreen::class.java.getDeclaredMethod(n, t).apply { isAccessible = true }.invoke(h, arg)
         fun f(n: String) = HomeScreen::class.java.getDeclaredField(n).apply { isAccessible = true }.get(h)
@@ -63,9 +63,9 @@ class V163Test {
         return n
     }
 
-    private fun open(layout: String, ui: String, road: String): Pair<MainActivity, View> {
+    private fun open(layout: String, ui: String, road: String): Pair<ClassicActivity, View> {
         Prefs.dayMode = ui; Prefs.layout = layout; Prefs.roadMode = road
-        val a = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val a = Robolectric.buildActivity(ClassicActivity::class.java).setup().get()
         val root = a.window.decorView
         settle(); relayout(root); settle(); play(a); settle(); relayout(root); settle(2)
         return a to root
@@ -131,7 +131,7 @@ class V163Test {
             shot(root, "bars-$id")
         }
         // engine: no RECORD_AUDIO in tests → calm idle animation, then decays to zero and stops when paused
-        val a = Robolectric.buildActivity(MainActivity::class.java).setup().get(); settle()
+        val a = Robolectric.buildActivity(ClassicActivity::class.java).setup().get(); settle()
         val g = a.glow!!
         g.settingsChanged(); g.setActive(true); g.setPlaying(true); settle(3)
         org.junit.Assert.assertEquals("barsIdle", g.mode)

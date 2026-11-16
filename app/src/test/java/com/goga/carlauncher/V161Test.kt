@@ -47,7 +47,7 @@ class V161Test {
         val cn = ComponentName(pkg, "$pkg.Main"); spm.addActivityIfNotPresent(cn)
         spm.addIntentFilterForActivity(cn, IntentFilter(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) })
     }
-    private fun start(): MainActivity { val a = Robolectric.buildActivity(MainActivity::class.java).setup().get(); settle(); relayout(a.window.decorView); settle(); return a }
+    private fun start(): ClassicActivity { val a = Robolectric.buildActivity(ClassicActivity::class.java).setup().get(); settle(); relayout(a.window.decorView); settle(); return a }
 
     @Test fun nordicRemovedAndMigrated() {
         assertTrue(Layouts.ALL.none { it.id == "nordic" })
@@ -84,7 +84,7 @@ class V161Test {
         all(a.window.decorView).first { it.contentDescription == "Предыдущая раскладка" }.performClick(); settle(); assertEquals("cockpit", Prefs.layout)
         all(a.window.decorView).first { it.contentDescription == "Предыдущая раскладка" }.performClick(); settle(); assertEquals(Layouts.ALL.last().id, Prefs.layout)
         all(a.window.decorView).first { it.contentDescription == "День / ночь" }.performClick(); settle(); assertEquals("day", Prefs.dayMode)
-        a.show(MainActivity.SETTINGS); settle()
+        a.show(ClassicActivity.SETTINGS); settle()
         assertFalse(all(a.window.decorView).first { it.contentDescription == "Следующая раскладка" }.isShown)
     }
 
@@ -96,7 +96,7 @@ class V161Test {
             val ink = all(root).filterIsInstance<TextView>().count { it.isShown && (it.currentTextColor and 0xFFFFFF) in setOf(LightPass.INK and 0xFFFFFF, LightPass.INK2 and 0xFFFFFF) || it.currentTextColor == Dash.fg(true) }
             assertTrue("${l.id}: dark type in day mode ($ink)", ink >= 2)
             if (LightPass.applies(l.id)) {
-                val home = MainActivity::class.java.getDeclaredField("screens").apply { isAccessible = true }.get(a) as Array<*>
+                val home = ClassicActivity::class.java.getDeclaredField("screens").apply { isAccessible = true }.get(a) as Array<*>
                 assertTrue((home[0] as HomeScreen).light)
             }
         }

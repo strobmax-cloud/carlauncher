@@ -56,7 +56,7 @@ class MiniPlayer : Service() {
                 .also { if (auto) launcherInFront = false }
         }
         fun stop(c: Context) { try { c.stopService(Intent(c, MiniPlayer::class.java)) } catch (_: Exception) {} }
-        /** MainActivity resumed/paused: the mini player hides while the launcher (with its own player) is visible. */
+        /** ClassicActivity resumed/paused: the mini player hides while the launcher (with its own player) is visible. */
         fun setLauncherInFront(v: Boolean) { launcherInFront = v; instance?.applyVisibility() }
     }
 

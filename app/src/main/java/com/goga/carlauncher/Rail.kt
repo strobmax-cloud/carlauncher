@@ -55,17 +55,17 @@ object Rail {
 
     fun label(c: Context, id: String): String = if (id.startsWith(APP)) Tiles.label(c, id.removePrefix(APP)) else builtin(id)?.label ?: id
 
-    /** Runs an item. Screen items go through [MainActivity.show]. */
-    fun run(a: MainActivity, id: String) {
+    /** Runs an item. Screen items go through [ClassicActivity.show]. */
+    fun run(a: ClassicActivity, id: String) {
         when (id) {
-            "home" -> { if (a.current == MainActivity.HOME) (a.homeScreen())?.goPage(0); a.show(MainActivity.HOME) }
+            "home" -> { if (a.current == ClassicActivity.HOME) (a.homeScreen())?.goPage(0); a.show(ClassicActivity.HOME) }
             "back" -> NavKeys.back(a)
             "recents" -> NavKeys.recents(a)
-            "clean" -> a.show(MainActivity.CLEAN)
-            "voltest" -> a.show(MainActivity.VOLTEST)
-            "apps" -> a.show(MainActivity.APPS)
-            "media" -> a.show(MainActivity.MEDIA)
-            "dvr" -> a.show(MainActivity.DVR)
+            "clean" -> a.show(ClassicActivity.CLEAN)
+            "voltest" -> a.show(ClassicActivity.VOLTEST)
+            "apps" -> a.show(ClassicActivity.APPS)
+            "media" -> a.show(ClassicActivity.MEDIA)
+            "dvr" -> a.show(ClassicActivity.DVR)
             "settings" -> a.openSettings()
             "layout" -> a.stepLayout(1)
             "phone" -> PhoneSwitch.open(a)

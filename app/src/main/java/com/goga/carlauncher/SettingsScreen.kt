@@ -16,7 +16,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import com.goga.carlauncher.Ui.u
 
-class SettingsScreen(a: MainActivity) : Screen(a) {
+class SettingsScreen(a: ClassicActivity) : Screen(a) {
     companion object {
         /** v1.7.0: scroll position survives rebuilds after a change (the page no longer jumps to the top). */
         var savedScroll = 0
@@ -251,7 +251,7 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
             listOf("64" to "Обычные", "76" to "Крупные", "92" to "Очень крупные"), Prefs.volSize.toString()) { Prefs.volSize = it.toInt(); a.rebuild() }
         row(mn, R.drawable.ic_vol_down, "Тест громкости", "Способ сейчас: " + (Volume.method(Prefs.volMethod)?.let { "${it.n} — ${it.title}" } ?: "Авто") +
             ". Магнитола (com.syu.ms): " + (if (Syu.connected) "подключена ✓" else if (Syu.missing) "сервис не найден" else "подключаюсь") +
-            ". Нажмите — 8 способов по большой кнопке, выберите тот, что работает", null) { a.show(MainActivity.VOLTEST) }
+            ". Нажмите — 8 способов по большой кнопке, выберите тот, что работает", null) { a.show(ClassicActivity.VOLTEST) }
         val acc = NavAccess.enabled(a)
         row(mn, R.drawable.ic_back, "Кнопки «Назад» и «Недавние»", if (acc) "Служба включена ✓ — кнопки работают в меню и на плавающей кнопке"
             else "Нужна служба «Car Launcher — кнопки навигации» (Спец. возможности). Нажмите — объясню и открою. Кнопки руля она не трогает", null) {
@@ -440,7 +440,7 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
                 d.window?.setWindowAnimations(0); d.show()
             }
         }
-        row(md, R.drawable.ic_usb, "Открыть «Флешка / Медиа»", "Тоже есть в боковом меню. Плитку «Флешка» можно включить ниже", null) { a.show(MainActivity.MEDIA) }
+        row(md, R.drawable.ic_usb, "Открыть «Флешка / Медиа»", "Тоже есть в боковом меню. Плитку «Флешка» можно включить ниже", null) { a.show(ClassicActivity.MEDIA) }
 
         // Tiles
         val tiles = section("Плитки на главном экране")
@@ -506,7 +506,7 @@ class SettingsScreen(a: MainActivity) : Screen(a) {
         // v1.7.1 storage cleanup
         val cl = section("Память магнитолы")
         cl.addView(Storage.view(a).apply { setPadding(u(20), u(8), u(20), u(8)) }, Ui.lin(Ui.MATCH, Ui.WRAP))
-        row(cl, R.drawable.ic_storage, "Очистка памяти", "Приложения и папки по размеру, что можно убрать и что не трогать. Удаление — только через системное окно", null) { a.show(MainActivity.CLEAN) }
+        row(cl, R.drawable.ic_storage, "Очистка памяти", "Приложения и папки по размеру, что можно убрать и что не трогать. Удаление — только через системное окно", null) { a.show(ClassicActivity.CLEAN) }
         // System
         val s = section("Система")
         row(s, R.drawable.ic_home, "Сделать главным экраном", "Выберите Car Launcher как приложение «Главный экран»", null) {

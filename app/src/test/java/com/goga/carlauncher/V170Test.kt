@@ -39,14 +39,14 @@ class V170Test {
         root.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY)); root.layout(0, 0, w, h)
     }
     private fun all(v: View): List<View> = if (v is ViewGroup) listOf(v) + (0 until v.childCount).flatMap { all(v.getChildAt(it)) } else listOf(v)
-    private fun home(a: MainActivity) = (MainActivity::class.java.getDeclaredField("screens").apply { isAccessible = true }.get(a) as Array<*>)[0] as HomeScreen
+    private fun home(a: ClassicActivity) = (ClassicActivity::class.java.getDeclaredField("screens").apply { isAccessible = true }.get(a) as Array<*>)[0] as HomeScreen
     private fun shot(v: View, name: String): Bitmap {
         val b = Bitmap.createBitmap(v.width, v.height, Bitmap.Config.ARGB_8888); v.draw(Canvas(b))
         val out = File(System.getProperty("user.dir"), "../preview/robo-v170-$name.png"); out.parentFile!!.mkdirs()
         FileOutputStream(out).use { b.compress(Bitmap.CompressFormat.PNG, 100, it) }
         return b
     }
-    private fun play(a: MainActivity, src: String = "ЯНДЕКС МУЗЫКА") {
+    private fun play(a: ClassicActivity, src: String = "ЯНДЕКС МУЗЫКА") {
         val h = home(a)
         fun call(n: String, t: Class<*>, arg: Any) = HomeScreen::class.java.getDeclaredMethod(n, t).apply { isAccessible = true }.invoke(h, arg)
         fun f(n: String) = HomeScreen::class.java.getDeclaredField(n).apply { isAccessible = true }.get(h)
@@ -74,9 +74,9 @@ class V170Test {
             "com.liskovsoft.smarttubetv.beta" to "SmartTube").forEach { fakeApp(it.first, it.second) }
         AppRepo.invalidate()
     }
-    private fun open(layout: String, w: Int = 1280, h: Int = 720): Pair<MainActivity, View> {
+    private fun open(layout: String, w: Int = 1280, h: Int = 720): Pair<ClassicActivity, View> {
         Prefs.layout = layout
-        val a = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val a = Robolectric.buildActivity(ClassicActivity::class.java).setup().get()
         val root = a.window.decorView
         settle(); relayout(root, w, h); settle(); relayout(root, w, h); settle(); play(a); settle(2); relayout(root, w, h); settle(2)
         return a to root
@@ -201,7 +201,7 @@ class V170Test {
 
     @Test fun settingsKeepScroll() {
         teyesApps()
-        val a = Robolectric.buildActivity(MainActivity::class.java).setup().get(); val root = a.window.decorView
+        val a = Robolectric.buildActivity(ClassicActivity::class.java).setup().get(); val root = a.window.decorView
         settle(); relayout(root, 1280, 720); settle()
         a.openSettings(); settle(); relayout(root); settle()
         val sv = all(root).filterIsInstance<android.widget.ScrollView>().first { it.isShown && (it.getChildAt(0)?.height ?: 0) > 3000 }
@@ -217,16 +217,16 @@ class V170Test {
         FileOutputStream(File(System.getProperty("user.dir"), "../preview/robo-v170-settings-full.png")).use { full.compress(Bitmap.CompressFormat.PNG, 90, it) }
         shot(root, "settings")
         // opening settings again from the menu starts at the top
-        a.show(MainActivity.HOME); a.openSettings(); settle(); assertEquals(0, SettingsScreen.savedScroll)
+        a.show(ClassicActivity.HOME); a.openSettings(); settle(); assertEquals(0, SettingsScreen.savedScroll)
     }
 
     @Test fun storageScreens() {
         teyesApps()
-        val a = Robolectric.buildActivity(MainActivity::class.java).setup().get(); val root = a.window.decorView
+        val a = Robolectric.buildActivity(ClassicActivity::class.java).setup().get(); val root = a.window.decorView
         settle(); relayout(root, 1280, 720); settle()
-        a.show(MainActivity.DVR); settle(6); relayout(root); settle(2); shot(root, "dvr")
-        a.show(MainActivity.MEDIA); settle(6); relayout(root); settle(2); shot(root, "media")
-        a.show(MainActivity.APPS); settle(6); relayout(root); settle(2); shot(root, "apps")
+        a.show(ClassicActivity.DVR); settle(6); relayout(root); settle(2); shot(root, "dvr")
+        a.show(ClassicActivity.MEDIA); settle(6); relayout(root); settle(2); shot(root, "media")
+        a.show(ClassicActivity.APPS); settle(6); relayout(root); settle(2); shot(root, "apps")
     }
 
     /** Home badge when a volume has < 10 % free (real StatFs in Robolectric is roomy → forced text for the render). */
@@ -234,20 +234,20 @@ class V170Test {
         assertTrue(Storage.Info("USB", "/x", 100, 5, true).low)
         assertTrue(!Storage.Info("USB", "/x", 100, 50, true).low)
         teyesApps()
-        val a = Robolectric.buildActivity(MainActivity::class.java).setup().get(); val root = a.window.decorView
+        val a = Robolectric.buildActivity(ClassicActivity::class.java).setup().get(); val root = a.window.decorView
         settle(); relayout(root, 1280, 720); settle(); play(a)
-        MainActivity::class.java.getDeclaredField("lowText").apply { isAccessible = true }.set(a, "USB 6 %")
-        MainActivity::class.java.getDeclaredMethod("updateBadge").apply { isAccessible = true }.invoke(a)
+        ClassicActivity::class.java.getDeclaredField("lowText").apply { isAccessible = true }.set(a, "USB 6 %")
+        ClassicActivity::class.java.getDeclaredMethod("updateBadge").apply { isAccessible = true }.invoke(a)
         settle(1); relayout(root); settle(1)
         assertTrue("badge shown", all(root).any { it.isShown && it is TextView && it.text.toString().startsWith("⚠ Мало места") })
         shot(root, "low-storage-badge")
-        a.show(MainActivity.DVR); settle(2)
+        a.show(ClassicActivity.DVR); settle(2)
         assertTrue("badge only on home", all(root).none { it.isShown && it is TextView && it.text.toString().startsWith("⚠ Мало места") })
         // usage bars with sample volumes (Robolectric has no USB/SD): internal, USB with DVR (low), SD
         val G = 1024L * 1024 * 1024
         val demo = listOf(Storage.Info("Память магнитолы", "/storage/emulated/0", 25 * G, 11 * G, false),
             Storage.Info("USB-флешка", "/storage/USB1", 32 * G, 2 * G, true), Storage.Info("SD-карта", "/storage/SD", 64 * G, 40 * G, true))
-        val dvr = (MainActivity::class.java.getDeclaredField("screens").apply { isAccessible = true }.get(a) as Array<*>)[MainActivity.DVR] as DvrScreen
+        val dvr = (ClassicActivity::class.java.getDeclaredField("screens").apply { isAccessible = true }.get(a) as Array<*>)[ClassicActivity.DVR] as DvrScreen
         val box = DvrScreen::class.java.getDeclaredField("storageBox").apply { isAccessible = true }.get(dvr) as android.widget.LinearLayout
         settle(4); box.removeAllViews(); box.addView(Storage.compact(a, demo), Ui.lin(Ui.MATCH, Ui.WRAP))
         settle(1); relayout(root); settle(1); shot(root, "dvr-storage")
@@ -277,7 +277,7 @@ class V170Test {
         assertTrue(!Radio.on)
         // launching the radio from the launcher makes it the active source; next station → OEM service
         teyesApps(); fakeApp("com.syu.radio", "Радио")
-        val a = Robolectric.buildActivity(MainActivity::class.java).setup().get(); val root = a.window.decorView
+        val a = Robolectric.buildActivity(ClassicActivity::class.java).setup().get(); val root = a.window.decorView
         settle(); relayout(root, 1280, 720); settle()
         assertTrue(AppRepo.launch(a, "com.syu.radio")); settle(2)
         assertEquals(MediaHub.Kind.RADIO, MediaHub.kind)
@@ -288,7 +288,7 @@ class V170Test {
         assertEquals("com.syu.radio.nextservice", svc?.action); assertEquals("com.syu.broadcast", svc?.component?.packageName)
         MediaHub.command(a, android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS)
         assertEquals("com.syu.radio.prevservice", app.nextStartedService?.action)
-        Radio.freq = "FM 101.4"; MediaHub.pinRadio("com.syu.radio"); settle(2); a.show(MainActivity.HOME); settle(2); relayout(root); settle(1)
+        Radio.freq = "FM 101.4"; MediaHub.pinRadio("com.syu.radio"); settle(2); a.show(ClassicActivity.HOME); settle(2); relayout(root); settle(1)
         assertTrue("radio card", all(root).any { it.isShown && it is TextView && it.text.toString() == "FM 101.4" })
         shot(root, "radio-card")
         // picking a session by hand switches the radio off

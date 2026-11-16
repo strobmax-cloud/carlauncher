@@ -39,7 +39,7 @@ import java.util.Locale
  * Home screen. Data (clock, GPS, trip, media session) is shared; the arrangement comes from Prefs.layout:
  * cockpit / map / media / arc / widgets / tiles. Each builder creates its own views and registers them as sinks.
  */
-class HomeScreen(a: MainActivity) : Screen(a) {
+class HomeScreen(a: ClassicActivity) : Screen(a) {
     companion object { const val TILE_ROW = 112; const val TILE_H = TILE_ROW * 2 + 16 }
     private val h = Handler(Looper.getMainLooper())
     private val ru = Locale("ru")
@@ -229,7 +229,7 @@ class HomeScreen(a: MainActivity) : Screen(a) {
         v.setOnClickListener {
             val p = Tiles.resolve(a, i).pkg
             if (p == null) Pickers.pickApp(a, i) { rebuildApps() }
-            else if (p == Tiles.INTERNAL_MEDIA) a.show(MainActivity.MEDIA)
+            else if (p == Tiles.INTERNAL_MEDIA) a.show(ClassicActivity.MEDIA)
             else if (i == 0 || Nav.isNav(p)) Nav.open(a, p)       // navigator → mini player over it (if enabled)
             else AppRepo.launch(a, p)
         }

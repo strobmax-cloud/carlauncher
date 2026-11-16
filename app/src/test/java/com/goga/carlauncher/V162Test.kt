@@ -33,8 +33,8 @@ class V162Test {
         root.measure(View.MeasureSpec.makeMeasureSpec(root.width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(root.height, View.MeasureSpec.EXACTLY)); root.layout(0, 0, root.width, root.height)
     }
     private fun all(v: View): List<View> = if (v is ViewGroup) listOf(v) + (0 until v.childCount).flatMap { all(v.getChildAt(it)) } else listOf(v)
-    private fun home(a: MainActivity) = (MainActivity::class.java.getDeclaredField("screens").apply { isAccessible = true }.get(a) as Array<*>)[0] as HomeScreen
-    private fun play(a: MainActivity) {
+    private fun home(a: ClassicActivity) = (ClassicActivity::class.java.getDeclaredField("screens").apply { isAccessible = true }.get(a) as Array<*>)[0] as HomeScreen
+    private fun play(a: ClassicActivity) {
         val h = home(a)
         fun call(n: String, t: Class<*>, arg: Any) = HomeScreen::class.java.getDeclaredMethod(n, t).apply { isAccessible = true }.invoke(h, arg)
         fun f(n: String) = HomeScreen::class.java.getDeclaredField(n).apply { isAccessible = true }.get(h)
@@ -67,7 +67,7 @@ class V162Test {
         assertTrue("rear car asset decodes", car != null && car.height > car.width)   // rear view is taller than wide
         for (m in listOf("night", "day")) for (id in listOf("minimal", "smart", "cluster", "showcase", "radial")) {
             Prefs.dayMode = m; Prefs.layout = id
-            val a = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+            val a = Robolectric.buildActivity(ClassicActivity::class.java).setup().get()
             val root = a.window.decorView
             settle(); relayout(root); settle(); play(a); settle(); relayout(root); settle(2)
             val bmp = shot(root, "$id-$m")

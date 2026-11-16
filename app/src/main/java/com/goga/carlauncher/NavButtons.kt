@@ -48,7 +48,7 @@ object NavKeys {
     fun recents(c: Context) { if (!NavAccess.act(AccessibilityService.GLOBAL_ACTION_RECENTS)) explain(c) }
     /** Home = our launcher (no service needed). */
     fun home(c: Context) {
-        try { c.startActivity(Intent(c, MainActivity::class.java).setAction(Intent.ACTION_MAIN).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)) }
+        try { c.startActivity(Intent(c, ClassicActivity::class.java).setAction(Intent.ACTION_MAIN).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)) }
         catch (_: Throwable) { NavAccess.act(AccessibilityService.GLOBAL_ACTION_HOME) }
     }
     const val HOW = "Кнопки «Назад» и «Недавние» работают через службу «Car Launcher — кнопки навигации».\n\n" +
@@ -84,7 +84,7 @@ class FloatNav : Service() {
         }
         fun stop(c: Context) { try { c.stopService(Intent(c, FloatNav::class.java)) } catch (_: Exception) {} }
         fun setLauncherInFront(v: Boolean) { launcherInFront = v; instance?.apply() }
-        /** Called from MainActivity: keep the service in line with the setting. */
+        /** Called from ClassicActivity: keep the service in line with the setting. */
         fun sync(c: Context) { if (Prefs.floatNav && Settings.canDrawOverlays(c)) { if (instance == null) start(c) } else if (instance != null) stop(c) }
     }
     private lateinit var wm: WindowManager

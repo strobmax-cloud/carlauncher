@@ -17,7 +17,7 @@ import com.goga.carlauncher.Ui.u
  * Pictures appear in the gallery strip immediately; the newest one becomes the wallpaper.
  * The server stops when the window is closed or after 10 minutes.
  */
-class UploadDialog(private val a: MainActivity, private val onClosed: () -> Unit) {
+class UploadDialog(private val a: ClassicActivity, private val onClosed: () -> Unit) {
     private val h = Handler(Looper.getMainLooper())
     private var server: UploadServer? = null
     private var dialog: Dialog? = null

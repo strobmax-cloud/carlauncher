@@ -1,0 +1,76 @@
+package com.goga.carlauncher
+
+import android.content.Context
+import android.content.SharedPreferences
+
+/**
+ * v1.7.1 settings of the new C «Линза» / D «Стекло» screens (own file "ck", the 1.7.0 prefs "cl" stay untouched so the
+ * classic screens keep working).
+ */
+object K {
+    private lateinit var sp: SharedPreferences
+    fun init(c: Context) { if (!::sp.isInitialized) sp = c.applicationContext.getSharedPreferences("ck", Context.MODE_PRIVATE) }
+    /** tests */
+    fun use(p: SharedPreferences) { sp = p }
+    val ready get() = ::sp.isInitialized
+
+    private fun s(k: String, d: String) = sp.getString(k, d) ?: d
+    private fun ps(k: String, v: String) = sp.edit().putString(k, v).apply()
+    private fun b(k: String, d: Boolean) = sp.getBoolean(k, d)
+    private fun pb(k: String, v: Boolean) = sp.edit().putBoolean(k, v).apply()
+    private fun i(k: String, d: Int) = sp.getInt(k, d)
+    private fun pi(k: String, v: Int) = sp.edit().putInt(k, v).apply()
+    private fun f(k: String, d: Float) = sp.getFloat(k, d)
+    private fun pf(k: String, v: Float) = sp.edit().putFloat(k, v).apply()
+    private fun l(k: String, d: Long) = sp.getLong(k, d)
+    private fun pl(k: String, v: Long) = sp.edit().putLong(k, v).apply()
+
+    /** "C" Линза | "D" Стекло */
+    var style: String get() = s("style", "D"); set(v) = ps("style", v)
+    /** D colour theme: violet / green / navy / graphite */
+    var theme: String get() = s("theme", "violet"); set(v) = ps("theme", v)
+    /** slow procedural waves of D (and the idle shimmer of C) */
+    var waves: Boolean get() = b("waves", true); set(v) = pb("waves", v)
+    /** background: theme | cover | scene | video */
+    var bg: String get() = s("bg", "theme"); set(v) = ps("bg", v)
+    /** photo scene id or "auto" (by weather + time of day) */
+    var scene: String get() = s("scene", "auto"); set(v) = ps("scene", v)
+    /** weather for the background: auto (forecast) or manual */
+    var wxAuto: Boolean get() = b("wxAuto", true); set(v) = pb("wxAuto", v)
+    var wxTod: String get() = s("wxTod", "auto"); set(v) = ps("wxTod", v)          // auto / day / night
+    var wxKind: String get() = s("wxKind", "auto"); set(v) = ps("wxKind", v)       // auto / clear / cloudy / rain / snow
+    var particles: Boolean get() = b("particles", true); set(v) = pb("particles", v)
+    var blur: Boolean get() = b("blur", false); set(v) = pb("blur", v)
+    var bright: Int get() = i("bright", 80); set(v) = pi("bright", v.coerceIn(30, 100))
+    var big: Boolean get() = b("big", false); set(v) = pb("big", v)
+    /** C equalizer colours: ref (rainbow like the reference) / vu (green → red by level) */
+    var eqPal: String get() = s("eqPal", "ref"); set(v) = ps("eqPal", v)
+    /** absolute path of the chosen video background */
+    var video: String get() = s("video", ""); set(v) = ps("video", v)
+    var tiles: String get() = s("tiles", ""); set(v) = ps("tiles", v)
+    var startScreen: String get() = s("startScreen", "home"); set(v) = ps("startScreen", v)
+    var lastScreen: Int get() = i("lastScreen", 0); set(v) = pi("lastScreen", v)
+    var tilePage: Int get() = i("tilePage", 0); set(v) = pi("tilePage", v)
+
+    // ---- mileage (km, GPS) ----
+    var day: Float get() = f("day", 0f); set(v) = pf("day", v)
+    /** "yyyy-MM-dd" of the current 4:00…4:00 day */
+    var dayKey: String get() = s("dayKey", ""); set(v) = ps("dayKey", v)
+    var trip: Float get() = f("trip", 0f); set(v) = pf("trip", v)
+    var total: Float get() = f("total", 0f); set(v) = pf("total", v)
+
+    // ---- volume ----
+    var volStep: Int get() = i("volStep", 1); set(v) = pi("volStep", v)
+    var volOverlay: Boolean get() = b("volOverlay", true); set(v) = pb("volOverlay", v)
+    /** volume level we show when the unit does not report one (0..40) */
+    var volShown: Int get() = i("volShown", 14); set(v) = pi("volShown", v.coerceIn(0, 40))
+
+    // ---- misc ----
+    var lowHideUntil: Long get() = l("lowHideUntil", 0L); set(v) = pl("lowHideUntil", v)
+    var wxJson: String get() = s("wxJson", ""); set(v) = ps("wxJson", v)
+    var wxAt: Long get() = l("wxAt", 0L); set(v) = pl("wxAt", v)
+    var wxCity: String get() = s("wxCity", "Астана"); set(v) = ps("wxCity", v)
+    var cleanedApks: Int get() = i("cleanedApks", 0); set(v) = pi("cleanedApks", v)
+
+    fun clearAll() = sp.edit().clear().commit()
+}

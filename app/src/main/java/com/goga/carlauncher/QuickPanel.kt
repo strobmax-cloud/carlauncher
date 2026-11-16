@@ -10,7 +10,7 @@ import com.goga.carlauncher.Ui.u
  * Чёткая обложка), «Цвет из обложки», day / night and the layout. Every choice applies at once.
  */
 object QuickPanel {
-    fun show(a: MainActivity) {
+    fun show(a: ClassicActivity) {
         val box = Ui.vbox(a).apply { setPadding(u(28), u(20), u(28), u(12)) }
         val d = android.app.AlertDialog.Builder(a, R.style.Dialog).setView(android.widget.ScrollView(a).apply { addView(box) })
             .create()

@@ -35,7 +35,7 @@ class DashTest {
     private fun all(v: View, out: ArrayList<View> = ArrayList()): ArrayList<View> { if (v.isShown) out.add(v); if (v is ViewGroup) for (k in 0 until v.childCount) all(v.getChildAt(k), out); return out }
 
     @Test fun dashboardsFitAndStayHonest() {
-        val c = Robolectric.buildActivity(MainActivity::class.java).setup(); settle(); val act = c.get(); val root = act.window.decorView
+        val c = Robolectric.buildActivity(ClassicActivity::class.java).setup(); settle(); val act = c.get(); val root = act.window.decorView
         val banned = listOf("ПОЕЗДКА", "В ПУТИ", "МАКС", "ОБ/МИН", "RPM", "ТОПЛИВО", "°C")
         for (id in listOf("cluster", "chrono", "radial", "showcase")) for (m in listOf("day", "night")) {
             Prefs.layout = id; Prefs.dayMode = m; act.rebuild(); settle(2); relayout(root); settle(1)
@@ -56,7 +56,7 @@ class DashTest {
     }
 
     @Test fun glowFallsBackToBreathingAndStops() {
-        val c = Robolectric.buildActivity(MainActivity::class.java).setup(); settle(); val act = c.get()
+        val c = Robolectric.buildActivity(ClassicActivity::class.java).setup(); settle(); val act = c.get()
         val g = act.glow!!
         g.setActive(true); g.setPlaying(true); settle(1)
         assertEquals("off by default", "off", g.mode)
@@ -80,7 +80,7 @@ class DashTest {
     }
 
     @Test fun phoneSwitchOpensPairedList() {
-        val c = Robolectric.buildActivity(MainActivity::class.java).setup(); settle(); val act = c.get()
+        val c = Robolectric.buildActivity(ClassicActivity::class.java).setup(); settle(); val act = c.get()
         // no FYT BT app → Android Bluetooth settings
         assertEquals("settings", PhoneSwitch.open(act))
         assertEquals(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS, shadowOf(act).nextStartedActivity.action)

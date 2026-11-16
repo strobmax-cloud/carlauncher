@@ -42,8 +42,8 @@ class V171Test {
         root.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY)); root.layout(0, 0, w, h)
     }
     private fun all(v: View): List<View> = if (v is ViewGroup) listOf(v) + (0 until v.childCount).flatMap { all(v.getChildAt(it)) } else listOf(v)
-    private fun screens(a: MainActivity) = MainActivity::class.java.getDeclaredField("screens").apply { isAccessible = true }.get(a) as Array<*>
-    private fun home(a: MainActivity) = screens(a)[0] as HomeScreen
+    private fun screens(a: ClassicActivity) = ClassicActivity::class.java.getDeclaredField("screens").apply { isAccessible = true }.get(a) as Array<*>
+    private fun home(a: ClassicActivity) = screens(a)[0] as HomeScreen
     private fun shot(v: View, name: String): Bitmap {
         val b = Bitmap.createBitmap(v.width, v.height, Bitmap.Config.ARGB_8888); v.draw(Canvas(b))
         val out = File(System.getProperty("user.dir"), "../preview/robo-v171-$name.png"); out.parentFile!!.mkdirs()
@@ -51,7 +51,7 @@ class V171Test {
         return b
     }
     private fun save(b: Bitmap, name: String) = FileOutputStream(File(System.getProperty("user.dir"), "../preview/robo-v171-$name.png")).use { b.compress(Bitmap.CompressFormat.PNG, 100, it) }
-    private fun play(a: MainActivity) {
+    private fun play(a: ClassicActivity) {
         val h = home(a)
         fun call(n: String, t: Class<*>, arg: Any) = HomeScreen::class.java.getDeclaredMethod(n, t).apply { isAccessible = true }.invoke(h, arg)
         fun f(n: String) = HomeScreen::class.java.getDeclaredField(n).apply { isAccessible = true }.get(h)
@@ -70,9 +70,9 @@ class V171Test {
         spm.addActivityIfNotPresent(cn)
         spm.addIntentFilterForActivity(cn, android.content.IntentFilter(android.content.Intent.ACTION_MAIN).apply { addCategory(android.content.Intent.CATEGORY_LAUNCHER) })
     }
-    private fun open(layout: String, w: Int = 1280, h: Int = 720, music: Boolean = true): Pair<MainActivity, View> {
+    private fun open(layout: String, w: Int = 1280, h: Int = 720, music: Boolean = true): Pair<ClassicActivity, View> {
         Prefs.layout = layout
-        val a = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val a = Robolectric.buildActivity(ClassicActivity::class.java).setup().get()
         val root = a.window.decorView
         settle(); relayout(root, w, h); settle(); relayout(root, w, h); settle()
         if (music) { play(a); settle(4); relayout(root, w, h); settle(3) }
@@ -116,14 +116,14 @@ class V171Test {
 
     @Test fun volumeTestScreen() {
         val (a, root) = open("cockpit", music = false)
-        a.show(MainActivity.VOLTEST); settle(3); relayout(root); settle(2)
+        a.show(ClassicActivity.VOLTEST); settle(3); relayout(root); settle(2)
         val plus = all(root).filter { it.isShown && (it.contentDescription ?: "").toString().matches(Regex("Способ \\d громче")) }
         assertEquals(9, plus.size)   // 0 = Авто + 8 methods
         plus.forEach { assertTrue("big", it.height >= 70 && it.width >= 80) }
         all(root).first { it.isShown && it is TextView && it.text == "Выбрать" }.performClick(); settle(1)
         assertTrue(Prefs.volMethod != "auto")
         shot(root, "voltest")
-        a.onBackPressed(); assertEquals(MainActivity.SETTINGS, a.current)
+        a.onBackPressed(); assertEquals(ClassicActivity.SETTINGS, a.current)
     }
 
     /** No empty strip: the content uses the whole width next to the menu; volume floats over it, both sides. */
@@ -135,7 +135,7 @@ class V171Test {
             val vols = all(root).filter { it.contentDescription == "Громче" || it.contentDescription == "Тише" }
             assertEquals(4, vols.size)
             vols.forEach { v -> var p = v.parent; var inArea = false; while (p != null) { if (p === area) inArea = true; p = p.parent }; assertTrue("$side: over the content", inArea) }
-            val railW = Math.round(MainActivity.RAIL_W * Prefs.railScale * Ui.s)
+            val railW = Math.round(ClassicActivity.RAIL_W * Prefs.railScale * Ui.s)
             if (side != "bottom") assertTrue("$side: content = window − menu (${area.width} vs ${root.width - railW})", kotlin.math.abs(area.width - (root.width - railW)) <= 2)
             else assertEquals(root.width, area.width)
             vols.forEach { val l = loc(it); assertTrue(l[0] >= 0 && l[0] + it.width <= root.width && l[1] + it.height <= root.height) }
@@ -219,8 +219,8 @@ class V171Test {
             Cleanup.AppSize("com.syu.steer", "Обучение руля", 8 * M, 1 * M, 0, true, false, true, Cleanup.Mark.KEEP)))
         assertEquals("Яндекс Навигатор", demo.first().label)
         val (a, root) = open("cockpit", music = false)
-        a.show(MainActivity.CLEAN); settle(8); relayout(root); settle(2)
-        val cs = screens(a)[MainActivity.CLEAN] as CleanScreen
+        a.show(ClassicActivity.CLEAN); settle(8); relayout(root); settle(2)
+        val cs = screens(a)[ClassicActivity.CLEAN] as CleanScreen
         cs.showApps(demo)
         cs.showFolders(listOf(Cleanup.Folder("Download", "/x", 3 * G, Cleanup.hint("Download")), Cleanup.Folder("Android", "/x", 2 * G, Cleanup.hint("Android")),
             Cleanup.Folder("Movies", "/x", 900 * M, Cleanup.hint("Movies")), Cleanup.Folder("DCIM", "/x", 300 * M, Cleanup.hint("DCIM"))),
@@ -234,11 +234,11 @@ class V171Test {
         val body = sv.getChildAt(0)
         save(Bitmap.createBitmap(body.width, body.height, Bitmap.Config.ARGB_8888).also { body.draw(Canvas(it)) }, "cleanup-full")
         // badge «Мало места» opens the cleanup screen
-        a.show(MainActivity.HOME); settle(1)
-        MainActivity::class.java.getDeclaredField("lowText").apply { isAccessible = true }.set(a, "Память магнитолы 4 %")
-        MainActivity::class.java.getDeclaredMethod("updateBadge").apply { isAccessible = true }.invoke(a)
+        a.show(ClassicActivity.HOME); settle(1)
+        ClassicActivity::class.java.getDeclaredField("lowText").apply { isAccessible = true }.set(a, "Память магнитолы 4 %")
+        ClassicActivity::class.java.getDeclaredMethod("updateBadge").apply { isAccessible = true }.invoke(a)
         all(root).first { it is TextView && it.text.toString().startsWith("⚠ Мало места") }.performClick(); settle(1)
-        assertEquals(MainActivity.CLEAN, a.current)
+        assertEquals(ClassicActivity.CLEAN, a.current)
     }
 
     // ---------------- SX4 ----------------

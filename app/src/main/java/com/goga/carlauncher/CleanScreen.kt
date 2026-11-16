@@ -118,7 +118,7 @@ object Cleanup {
             .distinctBy { it.canonicalPath }.sortedByDescending { it.length() }
 }
 
-class CleanScreen(a: MainActivity) : Screen(a) {
+class CleanScreen(a: ClassicActivity) : Screen(a) {
     private lateinit var body: LinearLayout
     private lateinit var appsBox: LinearLayout
     private lateinit var foldersBox: LinearLayout
@@ -169,7 +169,7 @@ class CleanScreen(a: MainActivity) : Screen(a) {
     }
 
     override fun onShow() { refresh() }
-    override fun onPackagesChanged() { if (a.current == MainActivity.CLEAN) refresh() }
+    override fun onPackagesChanged() { if (a.current == ClassicActivity.CLEAN) refresh() }
 
     fun refresh() {
         val g = ++gen
