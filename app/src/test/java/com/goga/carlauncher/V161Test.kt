@@ -52,7 +52,7 @@ class V161Test {
     @Test fun nordicRemovedAndMigrated() {
         assertTrue(Layouts.ALL.none { it.id == "nordic" })
         ctx.getSharedPreferences("cl", 0).edit().putString("layout", "nordic").putBoolean("nordicLight", true).commit()
-        assertEquals("cockpit", Prefs.layout)
+        assertEquals(Layouts.SCREENS.id, Prefs.layout)   // v1.7.1: retired → stored "cockpit", shown only with «Классические раскладки»
         assertEquals("cockpit", ctx.getSharedPreferences("cl", 0).getString("layout", null))
         assertFalse(ctx.getSharedPreferences("cl", 0).contains("nordicLight"))
         assertEquals("cockpit", Layouts.byId("nordic").id)

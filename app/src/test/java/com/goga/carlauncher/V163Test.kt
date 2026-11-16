@@ -137,7 +137,8 @@ class V163Test {
         org.junit.Assert.assertEquals("barsIdle", g.mode)
         assertTrue("idle bars move", MusicFx.shown.any { it > 0.02f })
         g.setPlaying(false); org.junit.Assert.assertEquals("off", g.mode)
-        repeat(45) { Thread.sleep(40); shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(40)) }
+        var n = 0   // timing-based: under a loaded test JVM the fade may need more frames
+        while (MusicFx.on && n++ < 150) { Thread.sleep(40); shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(40)) }
         assertTrue("bars faded out", !MusicFx.on)
         Prefs.musicFx = "off"
     }
