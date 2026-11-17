@@ -28,6 +28,8 @@ object W {
         if (icon != null) row.addView(Ck.icon(c, icon), lin(24, 24))
         if (label != null) row.addView(Ck.text(c, 20f, Color.WHITE, Ck.face(true)).apply { text = label }, lin(WR, WR).apply { leftMargin = if (icon != null) 10 else 0 })
         f.addView(row, FrameLayout.LayoutParams(WR, WR, Gravity.CENTER))
+        // v1.7.2: room inside the border (text / icon never touch it); icon-only = a circle
+        if (label != null) { f.setPadding(h * 2 / 5, 0, h * 9 / 20, 0); f.minimumWidth = h * 2 } else f.minimumWidth = h
         f.background = Panel.pill(if (photoBehind) 0x73000000 else 0x14FFFFFF, if (on) Ck.accent() else 0x4DFFFFFF, h.toFloat()).apply { if (on) { strokeW = 2f; glow = Ck.accent() } }
         f.contentDescription = label ?: icon
         Ck.pressable(f) { onClick() }
@@ -51,7 +53,8 @@ object W {
     class Toggle(c: Context, var on: Boolean, val onChange: (Boolean) -> Unit) : View(c) {
         private val p = Paint(Paint.ANTI_ALIAS_FLAG)
         init { Ck.pressable(this) { on = !on; invalidate(); onChange(on) }; contentDescription = "Переключатель" }
-        override fun onDraw(cv: Canvas) {
+        override fun onDraw(cv: Canvas) { try { drawSafe1(cv) } catch (t: Throwable) { CrashLog.soft(t) } }
+        private fun drawSafe1(cv: Canvas) {
             val h = height.toFloat(); val w = width.toFloat()
             p.color = if (on) (if (Ck.isC) Ck.LIME else Ck.accent()) else 0x40FFFFFF
             cv.drawRoundRect(RectF(0f, 0f, w, h), h / 2, h / 2, p)
@@ -70,7 +73,8 @@ object W {
                 true
             }
         }
-        override fun onDraw(cv: Canvas) {
+        override fun onDraw(cv: Canvas) { try { drawSafe2(cv) } catch (t: Throwable) { CrashLog.soft(t) } }
+        private fun drawSafe2(cv: Canvas) {
             val cy = height / 2f; val f = (value - min) / (max - min).toFloat(); val x = 14 + f * (width - 28)
             p.color = 0x33FFFFFF; cv.drawRoundRect(RectF(14f, cy - 4, width - 14f, cy + 4), 4f, 4f, p)
             p.color = if (Ck.isC) Ck.LIME else Ck.accent(); cv.drawRoundRect(RectF(14f, cy - 4, x, cy + 4), 4f, 4f, p)
@@ -163,7 +167,8 @@ class SeekCk(c: Context, val onSeek: (Float) -> Unit) : View(c) {
     }
     private fun fractionRaw(f: Float) { fraction = f; invalidateFrac = f; invalidate() }
     private var invalidateFrac = 0f
-    override fun onDraw(cv: Canvas) {
+    override fun onDraw(cv: Canvas) { try { drawSafe3(cv) } catch (t: Throwable) { CrashLog.soft(t) } }
+    private fun drawSafe3(cv: Canvas) {
         val f = if (dragging) invalidateFrac else fraction
         val cy = height / 2f; val x = 10 + f * (width - 20)
         val a = Ck.accent()

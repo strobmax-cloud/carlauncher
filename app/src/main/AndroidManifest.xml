@@ -30,6 +30,7 @@
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
     <application
+        android:name=".App"
         android:label="Car Launcher"
         android:icon="@mipmap/ic_launcher"
         android:theme="@style/AppTheme"

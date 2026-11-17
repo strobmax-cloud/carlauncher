@@ -31,7 +31,7 @@ class Np(val src: String, val title: String, val artist: String, val playing: Bo
         fun now(c: Context): Np {
             if (MediaHub.radioActive()) {
                 val f = Radio.freq ?: "FM"
-                return Np("radio", Stations.name(f) ?: "Радио", f, true, -1, -1, Radio.pkg, null)
+                return Np("radio", Stations.name(f) ?: "Радио", f, !Radio.muted, -1, -1, Radio.pkg, null)
             }
             if (MediaHub.phoneActive()) {
                 return Np("phone", BtMeta.title ?: "Телефон", BtMeta.artist ?: "Bluetooth", BtMeta.playing, -1, -1, null, null)
@@ -56,15 +56,14 @@ class Np(val src: String, val title: String, val artist: String, val playing: Bo
 
 /** Radio stations of Astana for names / colours (the FYT radio reports only the frequency). */
 object Stations {
-    class St(val f: Double, val name: String, val short: String, val c0: Int, val c1: Int)
-    val ALL = listOf(
-        St(101.4, "Europa Plus", "EP", 0xFF3A7BD5.toInt(), 0xFF7B2FF7.toInt()), St(102.6, "Русское Радио", "РР", 0xFFFF4B2B.toInt(), 0xFFB31217.toInt()),
-        St(104.0, "Радио Астана", "РА", 0xFF11998E.toInt(), 0xFF0B5D8A.toInt()), St(105.7, "Love Radio", "LR", 0xFFFF5FA2.toInt(), 0xFFC2185B.toInt()),
-        St(106.5, "Хит FM", "HF", 0xFFFF9F0A.toInt(), 0xFFE8590C.toInt()), St(107.3, "Шалқар", "Ш", 0xFF56AB2F.toInt(), 0xFF2B7A0B.toInt())
-    )
+    class St(val f: Double, val name: String, val index: Int, val c0: Int, val c1: Int)
+    private val COLORS = intArrayOf(0xFF3A7BD5.toInt(), 0xFF7B2FF7.toInt(), 0xFFFF4B2B.toInt(), 0xFFB31217.toInt(), 0xFF11998E.toInt(), 0xFF0B5D8A.toInt(),
+        0xFFFF5FA2.toInt(), 0xFFC2185B.toInt(), 0xFFFF9F0A.toInt(), 0xFFE8590C.toInt(), 0xFF56AB2F.toInt(), 0xFF2B7A0B.toInt())
+    /** the preset chips (v1.7.2: editable — hold a chip to store the current station there) */
+    val ALL: List<St> get() = Presets.list().mapIndexed { i, p -> St(p.khz / 1000.0, p.name.ifEmpty { Presets.mhz(p.khz) }, i, COLORS[(i % 6) * 2], COLORS[(i % 6) * 2 + 1]) }
     fun mhz(f: String?): Double? = f?.removePrefix("FM")?.trim()?.replace(',', '.')?.toDoubleOrNull()
     fun of(f: String?): St? { val m = mhz(f) ?: return null; return ALL.firstOrNull { Math.abs(it.f - m) < 0.05 } }
-    fun name(f: String?) = of(f)?.name
+    fun name(f: String?) = of(f)?.name ?: FmCtl.ps
 }
 
 /**
@@ -78,6 +77,8 @@ class Cockpit(val a: MainActivity) {
     val bg = BgView(a)
     private var video: VideoBg? = null
     val particles = Particles(a)
+    /** v1.7.2: «Яркость фона» for every background (photos get it baked in; theme / cover / video — this veil) */
+    private val dim = View(a)
     val page = FrameLayout(a)
     val over = FrameLayout(a)
     private val volo = FrameLayout(a)
@@ -121,8 +122,10 @@ class Cockpit(val a: MainActivity) {
     private val h = AppRepo.main
     private val tick = object : Runnable {
         override fun run() {
-            updClock(); updMedia(false); Trip.checkDay()
-            if (Trip.stale() && Trip.speed != null) updSpeed()
+            try {
+                updClock(); updMedia(false); Trip.checkDay()
+                if (Trip.stale() && Trip.speed != null) updSpeed()
+            } catch (t: Throwable) { CrashLog.soft(t) }
             h.postDelayed(this, 1000)
         }
     }
@@ -132,6 +135,7 @@ class Cockpit(val a: MainActivity) {
 
     private fun setup() {
         st.addView(bg, FrameLayout.LayoutParams(Ck.W, Ck.H))
+        st.addView(dim, FrameLayout.LayoutParams(Ck.W, Ck.H))
         st.addView(particles, FrameLayout.LayoutParams(Ck.W, Ck.H))
         st.addView(page, FrameLayout.LayoutParams(Ck.W, Ck.H))
         st.addView(over, FrameLayout.LayoutParams(Ck.W, Ck.H))
@@ -161,7 +165,7 @@ class Cockpit(val a: MainActivity) {
         h.removeCallbacks(tick); h.post(tick)
         updAll()
     }
-    fun onResume() { resumed = true; MediaHub.refresh(); updAll(); checkLow(); video?.pauseIfHidden(true); bg.updateRunning(); particles.update() }
+    fun onResume() { resumed = true; overlays.onResume(); MediaHub.refresh(); updAll(); checkLow(); video?.pauseIfHidden(true); bg.updateRunning(); particles.update() }
     fun onPause() { resumed = false; video?.pauseIfHidden(false) }
     fun onStop() {
         MediaHub.detach(mediaListener); Wx.listeners.remove(wxListener); Trip.listeners.remove(tripListener)
@@ -169,7 +173,7 @@ class Cockpit(val a: MainActivity) {
         K.lastScreen = screen
     }
     fun destroy() { video?.release(); Trip.stop(); CkToast.sink = null }
-    fun onPackages() { if (!editing) build() }
+    fun onPackages() { if (!editing) build(); overlays.onResume() }
     fun onStorage() { if (K.bg == "video") applyBackground(); checkLow(); overlays.storageChanged() }
 
     /** HOME key / «Главная»: close everything, show the home screen */
@@ -187,7 +191,8 @@ class Cockpit(val a: MainActivity) {
     fun rebuildAll() { applyBackground(); build() }
 
     // ------------------------------------------------------------------ background
-    fun applyBackground() {
+    fun applyBackground() { try { applyBackgroundInner() } catch (t: Throwable) { CrashLog.soft(t) } }
+    private fun applyBackgroundInner() {
         bg.music = screen == 1; bg.nature = nature
         val mode = if (nature) "scene" else bg.mode()
         val photo = mode == "scene" || mode == "video"
@@ -203,10 +208,25 @@ class Cockpit(val a: MainActivity) {
         updParticles()
     }
     private fun updParticles() {
-        val photo = nature || bg.mode() == "scene" || bg.mode() == "video"
-        val k = Wx.kind()
-        particles.kind = if (photo && (k == "rain" || k == "snow")) k else "none"
+        particles.kind = fxKind(nature || bg.mode() == "scene" || bg.mode() == "video")
+        // brightness veil (not for photos: their brightness is in the picture)
+        val md = if (nature) "scene" else bg.mode()
+        val b = K.bright
+        if (md == "scene") dim.setBackgroundColor(0)
+        else if (md == "video") dim.setBackgroundColor(Color.argb(Math.round((100 - b) / 100f * 0.85f * 255), 0, 0, 0))
+        else if (b < 80) dim.setBackgroundColor(Color.argb(Math.round((80 - b) / 50f * 0.6f * 255).coerceIn(0, 255), 0, 0, 0))
+        else dim.setBackgroundColor(Color.argb(Math.round((b - 80) / 20f * 0.14f * 255), 255, 255, 255))
     }
+    /** rain / snow: «По погоде» → only on photos and only when it rains / snows; otherwise what the owner chose, on any background */
+    companion object {
+        fun fxKind(photo: Boolean): String {
+            if (!K.particles) return "none"
+            if (!K.fxAuto) return if (K.fxKind == "rain" || K.fxKind == "snow") K.fxKind else "none"
+            val k = Wx.kind()
+            return if (photo && (k == "rain" || k == "snow")) k else "none"
+        }
+    }
+    fun refreshFx() = updParticles()
 
     // ------------------------------------------------------------------ gestures
     private fun setupSwipe() {
@@ -234,6 +254,22 @@ class Cockpit(val a: MainActivity) {
     // ------------------------------------------------------------------ build
     private fun big() = K.big
     fun build() {
+        try { buildInner() } catch (t: Throwable) {
+            // never leave the owner without a screen: log, then a plain fallback with the way to settings / classic screen
+            CrashLog.soft(t)
+            try {
+                page.removeAllViews()
+                val col = W.vbox(a).apply { gravity = Gravity.CENTER }
+                col.addView(t(26f, Color.WHITE, true, 2, Gravity.CENTER).apply { text = "Экран не построился — ошибка записана в журнал" })
+                val r = W.hbox(a).apply { gravity = Gravity.CENTER }
+                r.addView(W.button(a, "Настройки", 200, 60) { overlays.settings("about") }, lin(-2, 60).apply { rightMargin = 12 })
+                r.addView(W.button(a, "Стиль «Стекло», фон «Тема»", 320, 60, primary = true) { K.style = "D"; K.bg = "theme"; K.big = false; rebuildAll() }, lin(-2, 60))
+                col.addView(r, lin(-2, -2).apply { topMargin = 24 })
+                page.put(col, 0, 200, Ck.W, 260)
+            } catch (_: Throwable) {}
+        }
+    }
+    private fun buildInner() {
         page.removeAllViews(); milTv.clear(); srcBtns.clear(); presetBtns.clear()
         lens = null; eq = null; gauge = null; clockTv = null; dateTv = null; speedTv = null; npTitle = null; npArtist = null; npCap = null; npCover = null
         playBtn = null; seek = null; tPos = null; tDur = null; wxIcon = null; wxTemp = null; wxPlace = null; lowStrip = null
@@ -248,7 +284,21 @@ class Cockpit(val a: MainActivity) {
     private fun orb(size: Float, color: Int = Color.WHITE, g: Int = Gravity.START or Gravity.CENTER_VERTICAL) = Ck.text(a, size, color, Ck.orb, 1, g)
 
     // ---- shared pieces ----
-    private fun weather(x: Int, y: Int) {
+    /** [compact] = one line (Музыка «Стекло» / Природа: the cover starts right under it) */
+    private fun weatherLine(x: Int, y: Int) {
+        val box = W.hbox(a).apply { setPadding(14, 0, 18, 0) }
+        val sz = if (big()) 34 else 30
+        val ic = Ck.icon(a, Wx.icon()); wxIcon = ic; box.addView(ic, lin(sz, sz))
+        val tt = (if (Ck.isC) orb(if (big()) 30f else 26f) else t(if (big()) 30f else 26f, Color.WHITE)); wxTemp = tt
+        box.addView(tt, lin(-2, -2).apply { leftMargin = 10 })
+        val pl = t(if (big()) 21f else 19f, 0xB3FFFFFF.toInt()); wxPlace = pl; box.addView(pl, lin(-2, -2).apply { leftMargin = 12 })
+        box.background = Panel(if (W.photoBehind) 0x80060810.toInt() else 0x1AFFFFFF, 0x26FFFFFF, 1f, floatArrayOf(25f, 25f, 25f, 25f), false)
+        box.contentDescription = "Погода"
+        Ck.pressable(box) { overlays.weatherMenu() }
+        page.addView(box, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, if (big()) 54 else 50).apply { leftMargin = x; topMargin = y })
+    }
+    private fun weather(x: Int, y: Int, compact: Boolean = false) {
+        if (compact) { weatherLine(x, y); return }
         val box = W.hbox(a)
         val ic = Ck.icon(a, Wx.icon()); wxIcon = ic
         box.addView(ic, lin(if (big()) 42 else 36, if (big()) 42 else 36))
@@ -641,7 +691,7 @@ class Cockpit(val a: MainActivity) {
         } else {
             val E = EqView(a).apply { home = false; accent = accent() }; eq = E; page.put(E, 0, 0, Ck.W, Ck.H)
         }
-        weather(40, 30)
+        weather(40, 30, compact = music)
         topBar(music, music)
         if (!music) {
             val ck = t(if (bigk) 90f else 74f, Color.WHITE, g = Gravity.CENTER).apply { typeface = Ck.sansL }; clockTv = ck
@@ -746,11 +796,23 @@ class Cockpit(val a: MainActivity) {
             b.addView((if (Ck.isC) orb(22f, g = Gravity.CENTER) else t(22f, Color.WHITE, g = Gravity.CENTER)).apply { text = String.format(Locale.US, "%.1f", s.f) })
             b.addView(t(18f, 0x9EFFFFFF.toInt(), g = Gravity.CENTER).apply { text = s.name }, lin(W.M, -2).apply { topMargin = 2 })
             b.contentDescription = s.name
-            // tap = next preset of the unit's radio, hold = open the radio to tune / seek (the launcher cannot tune by itself)
-            Ck.pressable(b, { Radio.open(a) }) { if (!Radio.seek(a, true)) Radio.open(a) else showToast("Следующая станция") }
+            // v1.7.2: tap = tune this station right here (the radio app stays closed); hold = store the current station on this chip
+            Ck.pressable(b, { storePreset(i) }) { tunePreset(s) }
             presetBtns.add(s to b)
             page.put(b, x0 + i * (bw + gap), y, bw, hh)
         }
+    }
+    private fun tunePreset(s: Stations.St) {
+        val khz = Math.round(s.f * 1000).toInt()
+        if (np.src != "radio") Radio.select(a)
+        if (FmCtl.tuneTo(khz)) { showToast("${s.name} · ${Presets.mhz(khz)}"); Radio.freq = "FM " + Presets.mhz(khz); updMedia(true) }
+        else { showToast("Радио магнитолы не отвечает — открываю его"); Radio.open(a) }
+    }
+    private fun storePreset(i: Int) {
+        val k = FmCtl.khz.takeIf { it > 0 } ?: Stations.mhz(Radio.freq)?.let { Math.round(it * 1000).toInt() }
+        if (k == null) { showToast("Сначала включите радио"); return }
+        val name = FmCtl.ps ?: Presets.list().firstOrNull { Math.abs(it.khz - k) < 50 }?.name ?: Presets.mhz(k)
+        Presets.set(i, Presets.P(k, name)); showToast("Сохранено: $name · ${Presets.mhz(k)}"); build()
     }
 
     private fun seekRow(x: Int, y: Int, w: Int, hh: Int) {
@@ -761,17 +823,20 @@ class Cockpit(val a: MainActivity) {
         page.put(bar, x, y, w, hh)
     }
 
-    /** radio: tap ⏮ ⏭ = previous / next preset, hold = seek (media keys the FYT radio understands) */
+    /** radio: tap ⏮ ⏭ = search the next / previous station (FmCtl seek), hold = one step 0.1 MHz */
     private fun radioLong(v: View, next: Boolean) {
         v.setOnLongClickListener {
-            if (np.src == "radio") { MediaHub.key(a, if (next) KeyEvent.KEYCODE_MEDIA_FAST_FORWARD else KeyEvent.KEYCODE_MEDIA_REWIND); showToast(if (next) "Поиск станции ▶" else "◀ Поиск станции") }
+            if (np.src == "radio") {
+                if (FmCtl.step(next)) showToast(if (next) "+0,1 МГц" else "−0,1 МГц")
+                else { MediaHub.key(a, if (next) KeyEvent.KEYCODE_MEDIA_FAST_FORWARD else KeyEvent.KEYCODE_MEDIA_REWIND); showToast(if (next) "Поиск станции ▶" else "◀ Поиск станции") }
+            }
             true
         }
     }
 
     // ================================================================== Природа
     private fun buildNature() {
-        weather(40, 30)
+        weather(40, 30, compact = true)
         val ct = (if (Ck.isC) orb(44f) else t(44f).apply { typeface = Ck.sansL }); clockTv = ct
         page.addView(ct, FrameLayout.LayoutParams(-2, -2, Gravity.END or Gravity.TOP).apply { rightMargin = 40; topMargin = 30 })
         val sc = W.pill(a, "img", Scenes.current().name, 50) { overlays.gallery() }
@@ -826,7 +891,8 @@ class Cockpit(val a: MainActivity) {
     }
 
     private var lastSrc = ""
-    fun updMedia(full: Boolean) {
+    fun updMedia(full: Boolean) { try { updMediaInner() } catch (t: Throwable) { CrashLog.soft(t) } }
+    private fun updMediaInner() {
         val n = try { Np.now(a) } catch (_: Throwable) { return }
         val srcChanged = n.src != np.src && (n.src == "radio" || np.src == "radio")
         np = n
@@ -911,9 +977,16 @@ class Cockpit(val a: MainActivity) {
     }
     /** source switch (Радио / Я.Музыка / Телефон) */
     fun pickSource(k: String) {
+        if (k != "radio" && Radio.muted) { if (Syu.vol(-4)) Radio.muted = false }
         when (k) {
-            "radio" -> { val p = MediaHub.RADIO_PKGS.firstOrNull { a.packageManager.getLaunchIntentForPackage(it) != null }
-                if (p != null) { MediaHub.pinRadio(p); AppRepo.launch(a, p) } else showToast("Радио магнитолы не найдено") }
+            "radio" -> {
+                // v1.7.2: just select the radio (tuner becomes the source), stay on our screen
+                if (Radio.select(a)) showToast("Радио" + (Radio.freq?.let { " · $it" } ?: ""))
+                else {
+                    val p = MediaHub.RADIO_PKGS.firstOrNull { a.packageManager.getLaunchIntentForPackage(it) != null }
+                    if (p != null) { MediaHub.pinRadio(p); AppRepo.launch(a, p) } else showToast("Радио магнитолы не найдено")
+                }
+            }
             "music" -> {
                 val s = MediaHub.all.firstOrNull { !MediaHub.isPhone(a, it.packageName) && !MediaHub.isRadio(a, it.packageName) }
                 if (s != null) { MediaHub.pin(s.packageName); try { s.transportControls.play() } catch (_: Throwable) {} }

@@ -20,7 +20,10 @@ object AppRepo {
 
     @Volatile var apps: List<App>? = null
     private val icons = HashMap<String, Drawable>()
-    val exec = Executors.newFixedThreadPool(2)
+    /** v1.7.2: an error in background work is logged instead of closing the launcher */
+    val exec: java.util.concurrent.ExecutorService = object : java.util.concurrent.ThreadPoolExecutor(2, 2, 0L, java.util.concurrent.TimeUnit.MILLISECONDS, java.util.concurrent.LinkedBlockingQueue()) {
+        override fun execute(command: Runnable) = super.execute(Runnable { try { command.run() } catch (t: Throwable) { CrashLog.soft(t) } })
+    }
     val main = Handler(Looper.getMainLooper())
     private var gen = 0
 

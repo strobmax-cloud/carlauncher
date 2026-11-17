@@ -37,7 +37,16 @@ class MainActivity : Activity() {
         Updater.cleanupLeftovers(this)
         Syu.bind(this)   // TEYES/FYT volume service, bound early so the first press already works
         Wx.init(); Trip.checkDay()
+        // v1.7.2 safe start: crashed twice in 3 minutes → the heavy extras off (video, animations), the owner is told
+        val crashes = CrashLog.recent(this)
+        if (crashes >= 2) {
+            if (K.bg == "video") K.bg = "theme"
+            K.waves = false; K.particles = false; K.safeAt = System.currentTimeMillis()
+            CrashLog.clearRecent(this)
+        }
         ck = Cockpit(this)
+        if (crashes >= 2) ck.showToast("Car Launcher перезапустился после сбоя: видео и анимации выключены. Журнал — Настройки → О программе")
+        else if (intent?.getBooleanExtra("afterCrash", false) == true) ck.showToast("Car Launcher перезапустился после сбоя (записано в журнал)")
         setContentView(ck.root)
         registerReceiver(pkgReceiver, IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED); addAction(Intent.ACTION_PACKAGE_REMOVED); addAction(Intent.ACTION_PACKAGE_CHANGED); addDataScheme("package")

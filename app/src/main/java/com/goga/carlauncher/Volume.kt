@@ -167,10 +167,11 @@ object Syu {
                 val m = b?.let { module(it, SOUND) }
                 sound = m; connected = m != null
                 if (m != null) register(m)
+                if (b != null) FmCtl.onToolkit(b)   // v1.7.2 radio buttons on our screen
             } catch (_: Throwable) { connected = false }
             AppRepo.main.post { listener?.invoke() }
         }
-        override fun onServiceDisconnected(n: ComponentName?) { connected = false; sound = null; bound = false }
+        override fun onServiceDisconnected(n: ComponentName?) { connected = false; sound = null; bound = false; FmCtl.reset() }
     }
 
     /** Binds once (cheap; no-op if the unit has no com.syu.ms). */
@@ -187,6 +188,7 @@ object Syu {
         if (!bound) missing = true
     }
 
+    internal fun moduleOf(toolkit: IBinder, id: Int): IBinder? = module(toolkit, id)
     private fun module(toolkit: IBinder, id: Int): IBinder? {
         val d = Parcel.obtain(); val r = Parcel.obtain()
         try {
@@ -204,7 +206,7 @@ object Syu {
         } finally { d.recycle(); r.recycle() }
     }
 
-    /** SOUND / C_VOL with one value (−1 up, −2 down, or an absolute level). The only command this app sends. */
+    /** SOUND / C_VOL with one value (−1 up, −2 down, −5 mute on/off, or an absolute level). Besides it only the radio buttons (FmCtl). */
     fun vol(v: Int): Boolean {
         val m = sound ?: return false
         val d = Parcel.obtain(); val r = Parcel.obtain()

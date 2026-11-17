@@ -200,7 +200,7 @@ object MediaHub {
     private var pinnedAt = 0L
 
     // ---- radio of the head unit (FYT / TEYES «Радио» usually publishes NO media session) ----
-    val RADIO_PKGS = listOf("com.syu.radio", "com.syu.ms.radio", "com.microntek.radio", "com.android.fmradio", "com.navimods.radio", "com.spd.radio")
+    val RADIO_PKGS = listOf("com.syu.carradio", "com.syu.radio", "com.syu.ms.radio", "com.microntek.radio", "com.android.fmradio", "com.navimods.radio", "com.spd.radio")
     fun isRadio(c: Context?, pkg: String?): Boolean = pkg != null && (pkg in RADIO_PKGS ||
         (c != null && try { Tiles.resolve(c, 1).pkg == pkg } catch (_: Throwable) { false }))
     private fun hasSession(pkg: String) = sessions.any { it.packageName == pkg }
@@ -374,6 +374,10 @@ object Radio {
     private var cb: (() -> Unit)? = null
 
     fun started(p: String?) { pkg = p ?: pkg; on = true; at = SystemClock.elapsedRealtime() }
+    /** v1.7.2: the tuner reported something (FmCtl) → refresh the screens */
+    fun changed() { cb?.invoke() }
+    /** v1.7.2: radio muted by our ⏯ (the tuner has no pause) */
+    @Volatile var muted = false
 
     fun register(c: Context, onChange: () -> Unit) {
         cb = onChange
@@ -411,10 +415,23 @@ object Radio {
     fun command(c: Context, code: Int) {
         when (code) {
             KeyEvent.KEYCODE_MEDIA_NEXT, KeyEvent.KEYCODE_MEDIA_PREVIOUS -> {
+                // v1.7.2: the tuner itself (seek to the next station), the radio app stays closed
+                if (FmCtl.seek(code == KeyEvent.KEYCODE_MEDIA_NEXT)) return
                 if (!seek(c, code == KeyEvent.KEYCODE_MEDIA_NEXT)) MediaHub.key(c, code)
             }
-            else -> open(c)
+            else -> {
+                // ⏯ on the radio = sound off / on (the tuner cannot pause); without the vendor service → the radio app
+                if (Syu.connected && Syu.vol(if (muted) -4 else -3)) { muted = !muted; cb?.invoke() } else open(c)
+            }
         }
+    }
+    /** v1.7.2: radio as the source without opening its screen. False → the caller opens the radio app. */
+    fun select(c: Context): Boolean {
+        if (!FmCtl.activate()) return false
+        if (muted && Syu.vol(-4)) muted = false
+        val p = pkg ?: MediaHub.RADIO_PKGS.firstOrNull { c.packageManager.getLaunchIntentForPackage(it) != null } ?: "com.syu.carradio"
+        MediaHub.pinRadio(p)
+        return true
     }
 
     /** Next / previous station through the FYT OEM service. False when it is not there. */

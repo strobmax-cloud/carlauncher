@@ -109,7 +109,8 @@ class BgView(c: Context) : View(c) {
     private fun animated() = K.waves && waves.any { it != null } && isShown && windowVisibility == VISIBLE
     fun updateRunning() { val r = animated(); if (r && !running) { running = true; postInvalidateOnAnimation() } else if (!r) running = false }
 
-    override fun onDraw(cv: Canvas) {
+    override fun onDraw(cv: Canvas) { try { drawSafe1(cv) } catch (t: Throwable) { CrashLog.soft(t) } }
+    private fun drawSafe1(cv: Canvas) {
         val b = base
         if (b == null) { cv.drawColor(if (Ck.isC) Color.BLACK else Ck.theme().b0); return }
         val sx = width / Ck.W.toFloat()
@@ -310,7 +311,8 @@ class Particles(c: Context) : View(c) {
     override fun onAttachedToWindow() { super.onAttachedToWindow(); update() }
     override fun onDetachedFromWindow() { super.onDetachedFromWindow(); running = false }
 
-    override fun onDraw(cv: Canvas) {
+    override fun onDraw(cv: Canvas) { try { drawSafe2(cv) } catch (t: Throwable) { CrashLog.soft(t) } }
+    private fun drawSafe2(cv: Canvas) {
         if (kind == "none" || !K.particles) return
         val now = SystemClock.uptimeMillis()
         val dt = if (last == 0L) 0.033f else ((now - last) / 1000f).coerceAtMost(0.1f)
