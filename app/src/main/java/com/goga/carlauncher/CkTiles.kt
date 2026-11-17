@@ -13,15 +13,28 @@ object CkTiles {
     val ICONS = listOf("nav", "play", "cam", "radio", "note", "pin", "folder", "phone", "gear", "cloud", "star", "car", "fuel", "blue", "mic", "home")
     val DEFAULT = listOf(
         Tile("radio", icon = "radio", name = "Радио"), Tile("nav", icon = "nav", name = "Навигатор"),
-        Tile("cam", icon = "cam", name = "Камера"), Tile("settings", icon = "gear", name = "Настройки")
+        Tile("cam", icon = "cam", name = "Камера"), Tile("apps", icon = "grid", name = "Все приложения"), Tile("settings", icon = "gear", name = "Настройки")
     )
+    /** icons a tile may carry: the 16 of the picker + the «all apps» grid */
+    private fun okIcon(i: String) = i in ICONS || i == "grid"
     private const val SEP = "\u001f"; private const val ROW = "\u001e"
 
     fun encode(l: List<Tile>) = l.joinToString(ROW) { listOf(it.kind, it.pkg, it.cls, it.icon, it.name.replace(SEP, " ").replace(ROW, " ")).joinToString(SEP) }
     fun decode(s: String): List<Tile> = if (s.isEmpty()) DEFAULT else s.split(ROW).mapNotNull { r ->
-        val f = r.split(SEP); if (f.size < 5) null else Tile(f[0], f[1], f[2], f[3].takeIf { it in ICONS } ?: "star", f[4])
+        val f = r.split(SEP); if (f.size < 5) null else Tile(f[0], f[1], f[2], f[3].takeIf { okIcon(it) } ?: "star", f[4])
     }
-    fun load(): List<Tile> = decode(K.tiles)
+    fun load(): List<Tile> {
+        val l = decode(K.tiles)
+        if (!K.appsTileAdded) {
+            K.appsTileAdded = true
+            // v1.7.2: a list the owner already edited gets «Все приложения» once (before «Настройки», else at the end)
+            if (K.tiles.isNotEmpty() && l.none { it.kind == "apps" }) {
+                val m = l.toMutableList(); val at = m.indexOfFirst { it.kind == "settings" }.let { if (it < 0) m.size else it }
+                m.add(at, DEFAULT.first { it.kind == "apps" }); save(m); return m
+            }
+        }
+        return l
+    }
     fun save(l: List<Tile>) { K.tiles = encode(l) }
     fun reset() { K.tiles = "" }
 
@@ -44,27 +57,31 @@ object CkTiles {
         out.add(Choice(Tile("radio", icon = "radio", name = "Радио"), "Радио"))
         out.add(Choice(Tile("cam", icon = "cam", name = "Камера"), "Камера (Cam REC)"))
         out.add(Choice(Tile("settings", icon = "gear", name = "Настройки"), "Настройки лаунчера"))
+        out.add(Choice(Tile("apps", icon = "grid", name = "Все приложения"), "Все приложения (список с поиском)"))
         val apps = AppRepo.apps ?: try { AppRepo.load(c).also { AppRepo.apps = it } } catch (_: Throwable) { emptyList() }
-        val known = mapOf("org.smarttube" to "play", "com.teamsmart.videomanager" to "play", "ru.yandex.music" to "note", "ru.dublgis" to "pin", "ru.yandex.yandexnavi" to "nav",
-            "ru.yandex.yandexmaps" to "pin", "com.google.android.youtube" to "play", "com.spotify" to "note", "com.apple.android.music" to "note")
         val sorted = apps.filter { it.pkg != c.packageName }.sortedWith(compareBy({ a -> if (known.keys.any { a.pkg.startsWith(it) }) 0 else 1 }, { it.label.lowercase() }))
         for (a in sorted) {
-            val ic = known.entries.firstOrNull { a.pkg.startsWith(it.key) }?.value ?: when {
-                a.pkg.contains("music", true) -> "note"; a.pkg.contains("navi", true) || a.pkg.contains("map", true) -> "nav"
-                a.pkg.contains("bt", true) || a.pkg.contains("bluetooth", true) -> "blue"; a.pkg.contains("file", true) -> "folder"
-                a.pkg.contains("cam", true) || a.pkg.contains("dvr", true) -> "cam"; a.pkg.contains("radio", true) -> "radio"
-                a.pkg.contains("setting", true) -> "gear"; a.pkg.contains("weather", true) -> "cloud"; else -> "star"
-            }
-            out.add(Choice(Tile("app", a.pkg, a.cls, ic, a.label.take(14)), a.label))
+            out.add(Choice(Tile("app", a.pkg, a.cls, iconFor(a.pkg), a.label.take(14)), a.label))
         }
         return out
     }
+    private val known = mapOf("org.smarttube" to "play", "com.teamsmart.videomanager" to "play", "ru.yandex.music" to "note", "ru.dublgis" to "pin", "ru.yandex.yandexnavi" to "nav",
+        "ru.yandex.yandexmaps" to "pin", "com.google.android.youtube" to "play", "com.spotify" to "note", "com.apple.android.music" to "note")
+    /** a line icon that fits the app (tiles use line icons, not app icons) */
+    fun iconFor(pkg: String): String {
+        return known.entries.firstOrNull { pkg.startsWith(it.key) }?.value ?: when {
+                pkg.contains("music", true) -> "note"; pkg.contains("navi", true) || pkg.contains("map", true) -> "nav"
+                pkg.contains("bt", true) || pkg.contains("bluetooth", true) -> "blue"; pkg.contains("file", true) -> "folder"
+                pkg.contains("cam", true) || pkg.contains("dvr", true) -> "cam"; pkg.contains("radio", true) -> "radio"
+                pkg.contains("setting", true) -> "gear"; pkg.contains("weather", true) -> "cloud"; else -> "star"
+            }
+    }
     fun sameTarget(a: Tile, b: Tile) = a.kind == b.kind && (a.kind != "app" || a.pkg == b.pkg)
 
-    /** open what the tile points to; returns false when it is the launcher's own settings (handled by the caller) */
+    /** open what the tile points to; returns false for the launcher's own screens (settings, all apps — handled by the caller) */
     fun open(a: Activity, t: Tile): Boolean {
         when (t.kind) {
-            "settings" -> return false
+            "settings", "apps" -> return false
             "radio" -> {
                 val p = MediaHub.RADIO_PKGS.firstOrNull { a.packageManager.getLaunchIntentForPackage(it) != null }
                 if (p != null) { AppRepo.launch(a, p) } else CkToast.show(a, "Радио магнитолы не найдено")

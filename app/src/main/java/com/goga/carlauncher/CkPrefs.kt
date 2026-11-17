@@ -48,6 +48,10 @@ object K {
     /** absolute path of the chosen video background */
     var video: String get() = s("video", ""); set(v) = ps("video", v)
     var tiles: String get() = s("tiles", ""); set(v) = ps("tiles", v)
+    /** v1.7.2: «Все приложения» was added once to an existing custom tile list (removing it later is respected) */
+    var appsTileAdded: Boolean get() = b("appsTileAdded", false); set(v) = pb("appsTileAdded", v)
+    /** v1.7.2: packages hidden in «Все приложения» (comma separated) */
+    var hiddenApps: String get() = s("hiddenApps", ""); set(v) = ps("hiddenApps", v)
     var startScreen: String get() = s("startScreen", "home"); set(v) = ps("startScreen", v)
     var lastScreen: Int get() = i("lastScreen", 0); set(v) = pi("lastScreen", v)
     var tilePage: Int get() = i("tilePage", 0); set(v) = pi("tilePage", v)

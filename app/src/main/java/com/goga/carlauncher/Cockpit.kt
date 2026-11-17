@@ -219,6 +219,8 @@ class Cockpit(val a: MainActivity) {
     }
     /** rain / snow: «По погоде» → only on photos and only when it rains / snows; otherwise what the owner chose, on any background */
     companion object {
+        /** hold time at the edge before a dragged tile flips to the next / previous page */
+        const val FLIP_MS = 600L
         fun fxKind(photo: Boolean): String {
             if (!K.particles) return "none"
             if (!K.fxAuto) return if (K.fxKind == "rain" || K.fxKind == "snow") K.fxKind else "none"
@@ -575,6 +577,7 @@ class Cockpit(val a: MainActivity) {
     private fun tilesC(y: Int, hh: Int) {
         val tiles = CkTiles.load()
         val cap = if (big()) 2 else 4
+        tileCap = cap
         val pages = CkTiles.pages(tiles.size, cap); tilePage = tilePage.coerceIn(0, pages - 1); tilePages = pages
         val cur = tiles.drop(tilePage * cap).take(cap)
         val per = if (pages > 1) cap / 2 else maxOf(1, (cur.size + 1) / 2)
@@ -619,24 +622,36 @@ class Cockpit(val a: MainActivity) {
             f.rotation = if (index % 2 == 0) -1.2f else 1.2f
             dragToReorder(f, index)
         } else {
-            Ck.pressable(f, { editing = true; build() }) { if (!CkTiles.open(a, o)) overlays.settings() }
+            Ck.pressable(f, { editing = true; build() }) { if (!CkTiles.open(a, o)) { if (o.kind == "apps") overlays.allApps() else overlays.settings() } }
         }
         page.put(f, x, y, w, hh)
     }
     /** in edit mode: tap = sheet, drag sideways = move */
     private fun dragToReorder(v: View, index: Int) {
         var sx = 0f; var moved = false; var downX = 0f
+        var hoverDir = 0
+        // v1.7.2: hold a dragged tile at the left / right edge (over the arrow) → it goes to the previous / next page
+        val flip = Runnable { if (hoverDir != 0 && editing) { v.setOnTouchListener(null); moveTileToPage(index, hoverDir) } }
         v.setOnTouchListener { vv, e ->
             when (e.actionMasked) {
-                MotionEvent.ACTION_DOWN -> { downX = e.rawX; sx = vv.translationX; moved = false; vv.elevation = 12f; vv.alpha = .85f }
-                MotionEvent.ACTION_MOVE -> { val dx = (e.rawX - downX) / root.scale; if (Math.abs(dx) > 12) moved = true; vv.translationX = sx + dx }
+                MotionEvent.ACTION_DOWN -> { downX = e.rawX; sx = vv.translationX; moved = false; vv.elevation = 12f; vv.alpha = .85f; hoverDir = 0 }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = (e.rawX - downX) / root.scale; if (Math.abs(dx) > 12) moved = true; vv.translationX = sx + dx
+                    val cx = vv.left + vv.translationX + vv.width / 2f
+                    val p = tilePage
+                    val d = when { moved && cx < edgeL && p > 0 -> -1; moved && cx > edgeR && p < tilePages - 1 -> 1; else -> 0 }
+                    if (d != hoverDir) { AppRepo.main.removeCallbacks(flip); hoverDir = d; if (d != 0) AppRepo.main.postDelayed(flip, FLIP_MS) }
+                }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    AppRepo.main.removeCallbacks(flip); hoverDir = 0
                     vv.alpha = 1f; vv.elevation = 0f
                     if (!moved) { vv.translationX = 0f; if (e.actionMasked == MotionEvent.ACTION_UP) overlays.tileSheet(index) }
                     else {
                         val cx = (vv.left + vv.translationX + vv.width / 2f)
-                        val slots = page.let { _ -> tileSlots }
-                        val target = slots.indices.minByOrNull { Math.abs(slots[it] - cx) } ?: index
+                        val slots = tileSlots
+                        val local = slots.indices.minByOrNull { Math.abs(slots[it] - cx) } ?: (index - tilePage * tileCap)
+                        // slots are on the shown page → global position (v1.7.1 used the page-local number: page 2 tiles jumped to page 1 slots)
+                        val target = tilePage * tileCap + local
                         val l = CkTiles.load().toMutableList()
                         if (index < l.size) { val t0 = l.removeAt(index); l.add(target.coerceIn(0, l.size), t0); CkTiles.save(l) }
                         build()
@@ -647,8 +662,31 @@ class Cockpit(val a: MainActivity) {
         }
     }
     private val tileSlots = ArrayList<Float>()
-
+    private var tileCap = 5
+    private var edgeL = 0f; private var edgeR = Ck.W.toFloat()
+    /** the tile at [index] goes to the near end of the previous (−1) / next (+1) page, that page is shown */
+    fun moveTileToPage(index: Int, dir: Int): Int {
+        val l = CkTiles.load().toMutableList(); if (index !in l.indices) return index
+        val p = index / tileCap
+        val t0 = l.removeAt(index)
+        val to = (if (dir < 0) p * tileCap - 1 else (p + 1) * tileCap).coerceIn(0, l.size)
+        l.add(to, t0); CkTiles.save(l)
+        tilePage = to / tileCap; K.tilePage = tilePage
+        build(); showToast("«${t0.name}» → страница ${tilePage + 1}")
+        return to
+    }
+    /** one position left (−1) / right (+1), across pages too; returns the new index */
+    fun moveTile(index: Int, delta: Int): Int {
+        val l = CkTiles.load().toMutableList(); if (index !in l.indices) return index
+        val to = (index + delta).coerceIn(0, l.size - 1); if (to == index) return index
+        java.util.Collections.swap(l, index, to); CkTiles.save(l)
+        tilePage = to / tileCap; K.tilePage = tilePage; build()
+        return to
+    }
+    fun tilesPerPage() = tileCap
+    fun tilePageForTest(p: Int) { tilePage = p; K.tilePage = p; build() }
     private fun arrows(xl: Int, xr: Int, y: Int, w: Int, hh: Int, pages: Int, dotsY: Int) {
+        edgeL = (xl + w + 40).toFloat(); edgeR = (xr - 40).toFloat()
         for (dir in listOf(-1, 1)) {
             val live = pages > 1 && (if (dir < 0) tilePage > 0 else tilePage < pages - 1)
             val f = FrameLayout(a)
@@ -771,6 +809,7 @@ class Cockpit(val a: MainActivity) {
         val tiles = CkTiles.load()
         val bigk = big()
         val cap = if (bigk) 4 else 5; val y = if (bigk) 452 else 462; val hh = if (bigk) 136 else 116
+        tileCap = cap
         val L = 104; val Wd = 1072; val g = 16
         val pages = CkTiles.pages(tiles.size, cap); tilePage = tilePage.coerceIn(0, pages - 1); tilePages = pages
         val cur = tiles.drop(tilePage * cap).take(cap)

@@ -257,6 +257,82 @@ class Overlays(private val ck: Cockpit) {
     }
 
     // ================================================================== tile editor
+    // ================================================================== Все приложения (v1.7.2)
+    private var appsShowHidden = false
+    private fun hiddenSet() = K.hiddenApps.split(',').filter { it.isNotEmpty() }.toMutableSet()
+    /** full app grid: search, A–Я, tap = open, hold = add as a home tile / hide */
+    fun allApps(query: String = "") {
+        val s = popup("apps", 30, 20, 1220, 680)
+        s.put(W.header(a, "grid", "Все приложения", null) { close("apps") }, 28, 14, 1164, 56)
+        val search = EditText(a).apply {
+            hint = "Поиск приложения"; setHintTextColor(0x80FFFFFF.toInt()); setText(query); setSelection(query.length)
+            setTextColor(Color.WHITE); textSize = 22f; typeface = Ck.face(); setSingleLine(); inputType = InputType.TYPE_CLASS_TEXT
+            imeOptions = EditorInfo.IME_ACTION_DONE; setPadding(20, 0, 20, 0); background = Panel(0x24FFFFFF, 0x40FFFFFF, 1.2f, floatArrayOf(16f, 16f, 16f, 16f), false)
+            contentDescription = "Поиск приложения"
+        }
+        s.put(search, 28, 84, 860, 60)
+        val hidden = hiddenSet()
+        val hb = W.button(a, if (appsShowHidden) "Скрыть скрытые" else "Скрытые: ${hidden.size}", 260, 60) { appsShowHidden = !appsShowHidden; allApps(search.text.toString()) }
+        s.put(hb, 904, 84, 288, 60)
+        val gridBox = W.vbox(a)
+        val sv = scroll(gridBox)
+        s.put(sv, 28, 158, 1164, 508)
+        val status = t(20f, 0xB3FFFFFF.toInt(), lines = 2, g = Gravity.CENTER)
+        fun fill(all: List<AppRepo.App>) {
+            gridBox.removeAllViews()
+            val q = search.text.toString().trim().lowercase()
+            val hs = hiddenSet()
+            val col = java.text.Collator.getInstance(java.util.Locale("ru"))
+            val list = all.filter { it.pkg != a.packageName && (appsShowHidden || it.pkg !in hs) && (q.isEmpty() || it.label.lowercase().contains(q) || it.pkg.lowercase().contains(q)) }
+                .sortedWith { x, y -> col.compare(x.label, y.label) }
+            if (list.isEmpty()) { status.text = if (q.isEmpty()) "Приложений нет" else "Ничего не найдено по «$q»"; gridBox.addView(status, lin(W.M, 120)); return }
+            val cols = 6; val cw = 1164 / cols
+            list.chunked(cols).forEach { rowApps ->
+                val row = W.hbox(a)
+                for (app in rowApps) {
+                    val c = W.vbox(a).apply { gravity = Gravity.CENTER_HORIZONTAL; setPadding(8, 14, 8, 10) }
+                    val iv = ImageView(a).apply { scaleType = ImageView.ScaleType.FIT_CENTER; if (app.pkg in hs) alpha = .4f }
+                    AppRepo.bindIcon(a, app.pkg, app.cls, iv)
+                    c.addView(iv, lin(76, 76))
+                    c.addView(t(18f, if (app.pkg in hs) 0x80FFFFFF.toInt() else Color.WHITE, lines = 2, g = Gravity.CENTER).apply { text = app.label }, lin(W.M, W.WR).apply { topMargin = 8 })
+                    c.contentDescription = app.label
+                    Ck.pressable(c, { appMenu(app) { allApps(search.text.toString()) } }) { if (AppRepo.launch(a, app.pkg, app.cls)) close("apps") }
+                    row.addView(c, lin(cw, 162))
+                }
+                gridBox.addView(row, lin(W.M, 162))
+            }
+        }
+        status.text = "Загружаю список…"; gridBox.addView(status, lin(W.M, 120))
+        var loaded: List<AppRepo.App> = emptyList()
+        AppRepo.loadAsync(a) { l -> loaded = l; fill(l) }
+        search.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {}
+            override fun onTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {}
+            override fun afterTextChanged(e: android.text.Editable?) { fill(loaded); sv.scrollTo(0, 0) }
+        })
+    }
+    private fun appMenu(app: AppRepo.App, reopen: () -> Unit) {
+        val s = popup("appmenu", 390, 170, 500, 380)
+        s.put(W.header(a, "grid", app.label, null) { close("appmenu") }, 28, 14, 444, 56)
+        val body = W.vbox(a)
+        val tiles = CkTiles.load()
+        val onHome = tiles.any { it.kind == "app" && it.pkg == app.pkg }
+        body.addView(W.button(a, if (onHome) "Уже на главном экране" else "На главный экран", 444, 62, primary = !onHome) {
+            if (!onHome) { CkTiles.save(tiles + CkTiles.Tile("app", app.pkg, app.cls, CkTiles.iconFor(app.pkg), app.label.take(14))); ck.build(); ck.showToast("«${app.label}» — плитка на главном экране") }
+            close("appmenu")
+        }, lin(W.M, 62))
+        val hs = hiddenSet(); val hidden = app.pkg in hs
+        body.addView(W.button(a, if (hidden) "Показать в списке" else "Скрыть из списка", 444, 62) {
+            if (hidden) hs.remove(app.pkg) else hs.add(app.pkg); K.hiddenApps = hs.joinToString(",")
+            close("appmenu"); reopen()
+            if (!hidden) ck.showToast("Скрыто. Вернуть — кнопка «Скрытые» вверху")
+        }, lin(W.M, 62).apply { topMargin = 12 })
+        body.addView(W.button(a, "О приложении", 444, 62) {
+            close("appmenu"); AppRepo.startSafe(a, Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + app.pkg)))
+        }, lin(W.M, 62).apply { topMargin = 12 })
+        s.put(body, 28, 84, 444, 270)
+    }
+
     fun tileSheet(index: Int) {
         val all = CkTiles.load().toMutableList()
         val cur = all.getOrNull(index)
@@ -298,6 +374,11 @@ class Overlays(private val ck: Cockpit) {
         s.put(scroll(body), 28, 84, 944, 466)
         val bar = W.hbox(a)
         if (cur != null) bar.addView(W.button(a, "Убрать плитку", 220, 58, danger = true) { all.removeAt(index); CkTiles.save(all); close("tile"); ck.build() }, lin(W.WR, 58))
+        // v1.7.2: move without dragging (works across pages)
+        if (cur != null) {
+            bar.addView(W.button(a, "◀ Влево", 150, 58) { if (index > 0) { close("tile"); tileSheet(ck.moveTile(index, -1)) } }.apply { contentDescription = "Переместить влево"; alpha = if (index > 0) 1f else .35f }, lin(W.WR, 58).apply { leftMargin = 12 })
+            bar.addView(W.button(a, "Вправо ▶", 150, 58) { if (index < all.size - 1) { close("tile"); tileSheet(ck.moveTile(index, 1)) } }.apply { contentDescription = "Переместить вправо"; alpha = if (index < all.size - 1) 1f else .35f }, lin(W.WR, 58).apply { leftMargin = 12 })
+        }
         bar.addView(View(a), lin(0, 1, 1f))
         bar.addView(W.button(a, "Отмена", 160, 58) { close("tile") }, lin(W.WR, 58).apply { rightMargin = 12 })
         bar.addView(W.button(a, "Сохранить", 200, 58, primary = true) {
@@ -309,7 +390,7 @@ class Overlays(private val ck: Cockpit) {
         s.put(bar, 28, 564, 944, 58)
     }
     private fun describe(t: CkTiles.Tile) = when (t.kind) {
-        "radio" -> "Радио магнитолы"; "nav" -> "Навигатор по умолчанию (${Nav.name(a, Nav.defaultNav(a))})"; "cam" -> "Камера"; "settings" -> "Настройки Car Launcher"
+        "radio" -> "Радио магнитолы"; "nav" -> "Навигатор по умолчанию (${Nav.name(a, Nav.defaultNav(a))})"; "cam" -> "Камера"; "settings" -> "Настройки Car Launcher"; "apps" -> "Все приложения (список с поиском)"
         "music" -> "Музыка"; "app" -> Tiles.label(a, t.pkg); else -> t.kind
     }
 
@@ -408,7 +489,7 @@ class Overlays(private val ck: Cockpit) {
         add(p, null,
             W.row(a, "Изменить плитки", "Добавить, убрать, переставить, переименовать, выбрать значок и приложение. Или удерживайте любую плитку", null) { close("settings"); ck.home(); ck.editing = true; ck.build() },
             W.row(a, "Добавить плитку", null, Ck.icon(a, "plus"), 26, 26) { tileSheet(-1) },
-            W.row(a, "Вернуть стандартные", "Радио · Навигатор · Камера · Настройки", null) { CkTiles.reset(); ck.build(); ck.showToast("Плитки как при установке") })
+            W.row(a, "Вернуть стандартные", "Радио · Навигатор · Камера · Все приложения · Настройки", null) { CkTiles.reset(); ck.build(); ck.showToast("Плитки как при установке") })
         add(p, "Запуск",
             segRow("Какой экран открывать", null, listOf("home" to "Главная", "music" to "Музыка", "last" to "Последний"), K.startScreen) { K.startScreen = it },
             W.row(a, "Навигатор по умолчанию", Nav.name(a, Nav.defaultNav(a)), null) { pickNav() })
