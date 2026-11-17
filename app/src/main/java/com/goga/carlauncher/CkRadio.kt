@@ -79,7 +79,7 @@ object FmCtl {
             radio?.let { r -> for (u in intArrayOf(U_BAND, U_FREQ, U_PS, U_EXTRA)) reg(r, u) }
         } catch (t: Throwable) { CrashLog.soft(t) }
     }
-    fun reset() { radio = null; main = null }
+    fun reset() { radio = null; main = null; khz = 0; ps = null; fmUnit = 0; stepKhz = 100; band = 0 }
 
     private fun reg(m: IBinder, u: Int) {
         val d = Parcel.obtain(); val r = Parcel.obtain()
@@ -108,7 +108,7 @@ object FmCtl {
     /** tune to [targetKhz] by stepping from the current frequency (the MCU ignores a direct «set frequency») */
     fun tuneTo(targetKhz: Int): Boolean {
         if (radio == null) return false
-        val from = khz
+        val from = if (khz > 0) khz else (Stations.mhz(Radio.freq)?.let { Math.round(it * 1000).toInt() } ?: 0)
         if (from <= 0) { return seek(true) }
         val steps = (Math.abs(targetKhz - from) + stepKhz / 2) / stepKhz
         if (steps == 0) return true

@@ -92,7 +92,7 @@ class Overlays(private val ck: Cockpit) {
                 W.row(a, "Размытие", null, W.Toggle(a, K.blur) { K.blur = it; ck.applyBackground() }, 76, 42))
             "video" -> g.rows(
                 W.row(a, "Видео", Videos.chosen()?.name ?: "не найдено — папка ${Videos.DIR} на флешке", W.button(a, "Выбрать…", 160, 50) { gallery(video = true) }, W.WR, 50),
-                W.row(a, "Размытие", "Для видео — только затемнение (размытие видео тяжело для магнитолы)", null))
+                W.row(a, "Размытие", null, W.Toggle(a, K.blur) { K.blur = it; ck.applyBackground() }, 76, 42))
         }
         // 3) brightness — works for every mode
         g.rows(W.row(a, "Яркость фона", if (cur == "scene") "Для фото" else "Темнее / светлее", W.Slider(a, K.bright, 30, 100) { v, done ->
@@ -555,7 +555,7 @@ class Overlays(private val ck: Cockpit) {
         body.addView(status, lin(W.M, W.WR).apply { topMargin = 14; bottomMargin = 6 })
         val apps = group()
         body.addView(apps, lin(W.M, W.WR))
-        body.addView(t(16f, 0x80FFFFFF.toInt(), lines = 4).apply { text = "Car Launcher сам ничего не удаляет: «Кэш» открывает страницу приложения с кнопкой «Очистить кэш», «Удалить» — системное окно с подтверждением. Отмеченные «не трогать» нужны магнитоле." }, lin(W.M, W.WR).apply { topMargin = 12 })
+        body.addView(t(16f, 0x80FFFFFF.toInt(), lines = 4).apply { text = "Car Launcher сам ничего не удаляет: «Очистить кэш» открывает страницу приложения, «Удалить» — системное окно с подтверждением, встроенные приложения можно только «Отключить…» на их странице. Отмеченные «не трогать» нужны магнитоле." }, lin(W.M, W.WR).apply { topMargin = 12 })
         val sv = scroll(body); cleanScroll = sv
         s.put(sv, 28, 84, 1144, 560)
         if (y > 0) sv.post { sv.scrollTo(0, y) }
