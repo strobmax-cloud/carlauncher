@@ -610,7 +610,12 @@ class Cockpit(val a: MainActivity) {
         val col = W.vbox(a).apply { gravity = Gravity.CENTER }
         val isz = if (big()) 40 else if (Ck.isC) 34 else 34
         col.addView(Ck.icon(a, o.icon), lin(isz, isz))
-        col.addView(t(if (big()) 23f else if (Ck.isC) 19f else 21f, Color.WHITE, Ck.isC, g = Gravity.CENTER).apply { text = o.name; setPadding(8, 0, 8, 0) }, lin(W.M, -2).apply { topMargin = 10 })
+        col.addView(t(if (big()) 23f else if (Ck.isC) 19f else 21f, Color.WHITE, Ck.isC, g = Gravity.CENTER).apply {
+            text = o.name; setPadding(8, 0, 8, 0)
+            // v1.7.2: a long name in a narrow tile («Все приложения» in «Линза») shrinks a little instead of «Все прило…»
+            val need = paint.measureText(o.name); val room = w - 24f
+            if (need > room) setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, maxOf(14f, textSize * room / need))
+        }, lin(W.M, -2).apply { topMargin = 10 })
         f.addView(col, FrameLayout.LayoutParams(-1, -1))
         f.contentDescription = o.name
         if (editing) {
