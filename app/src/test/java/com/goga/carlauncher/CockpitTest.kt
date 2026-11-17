@@ -79,7 +79,7 @@ class CockpitTest {
             val vols = all(root).filter { it.contentDescription == "Громче" || it.contentDescription == "Тише" }
             assertEquals("$st $sc volume buttons in both corners", 4, vols.size)
             if (sc == "home") {
-                val want = if (st == "C" && big) listOf("Радио", "Навигатор") else listOf("Радио", "Навигатор", "Камера", "Настройки")   // C «Крупный»: 2 per page
+                val want = CkTiles.DEFAULT.map { it.name }.take(if (st == "C") (if (big) 2 else 4) else (if (big) 4 else 5))   // tiles per page
                 assertTrue("$st tiles: $t", t.containsAll(want))
                 assertTrue(t.any { it.matches(Regex("\\d{1,2}:\\d\\d")) })
             }
@@ -181,7 +181,7 @@ class CockpitTest {
     }
 
     @Test fun tilesEditPagesAndDefaults() {
-        assertEquals(listOf("Радио", "Навигатор", "Камера", "Настройки"), CkTiles.DEFAULT.map { it.name })
+        assertEquals(listOf("Радио", "Навигатор", "Камера", "Все приложения", "Настройки"), CkTiles.DEFAULT.map { it.name })
         assertEquals(1, CkTiles.pages(5, 5)); assertEquals(2, CkTiles.pages(6, 5)); assertEquals(1, CkTiles.pages(0, 5))
         val l = CkTiles.DEFAULT + listOf(CkTiles.Tile("app", "org.smarttube.stable", "", "play", "SmartTube"), CkTiles.Tile("app", "ru.yandex.music", "", "note", "Музыка"))
         assertEquals(l, CkTiles.decode(CkTiles.encode(l)))

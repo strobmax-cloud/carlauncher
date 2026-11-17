@@ -76,6 +76,7 @@ object Cleanup {
             val system = ai.flags and ApplicationInfo.FLAG_SYSTEM != 0
             val updated = ai.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP != 0
             if (system && !updated && ai.packageName !in launchable) continue
+            if (!ai.enabled) continue   // v1.7.2: «Отключено» → leaves the list
             val label = try { ai.loadLabel(pm).toString() } catch (_: Throwable) { ai.packageName }
             var app = 0L; var data = 0L; var cache = 0L; var exact = false
             if (stats != null) try {

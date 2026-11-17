@@ -42,6 +42,8 @@ class Overlays(private val ck: Cockpit) {
     fun closeAll() { stack.forEach { over.removeView(it.second) }; stack.clear(); hideKb() }
     fun back(): Boolean { if (stack.isEmpty()) return false; closeTop(); return true }
     private fun hideKb() { try { a.getSystemService(InputMethodManager::class.java)?.hideSoftInputFromWindow(over.windowToken, 0) } catch (_: Throwable) {} }
+    /** v1.7.2: back from the system «App info» / uninstall dialog → the list shows what is really installed now */
+    fun onResume() { if (stack.any { it.first == "clean" }) clean(keepScroll = true) }
     fun storageChanged() { if (stack.any { it.first == "gallery" }) { close("gallery"); gallery() } }
 
     /** veil + sheet at x,y,w,h; returns the sheet */
@@ -60,32 +62,64 @@ class Overlays(private val ck: Cockpit) {
 
     // ================================================================== quick «Фон»
     fun bgPanel() {
-        val s = popup("bg", 380, 90, 860, 560, 0x40)
-        s.put(W.header(a, "layers", "Фон", null) { close("bg") }, 28, 18, 804, 56)
+        val s = popup("bg", 360, 80, 880, 590, 0x40)
+        s.put(W.header(a, "layers", "Фон", null) { close("bg") }, 28, 16, 824, 56)
         val body = W.vbox(a)
         val modes = listOf("theme" to "Тема", "cover" to "Обложка", "scene" to "Природа", "video" to "Видео")
-        body.addView(W.seg(a, modes.map { it.second }, modes.indexOfFirst { it.first == K.bg }.coerceAtLeast(0)) { i ->
+        val cur = K.bg
+        // 1) the mode: four tabs, one of them is on
+        body.addView(cap("Что за интерфейсом — выберите одно"), lin(W.M, W.WR).apply { bottomMargin = 8 })
+        body.addView(W.seg(a, modes.map { it.second }, modes.indexOfFirst { it.first == cur }.coerceAtLeast(0), 60, 21f) { i ->
             val m = modes[i].first
-            if (m == "video" && Videos.list.isEmpty()) Videos.scanAsync(a) { if (Videos.list.isEmpty()) ck.showToast("На флешке нет папки ${Videos.DIR} с .mp4") ; ck.applyBackground() }
             K.bg = m; ck.applyBackground(); ck.build(); close("bg"); bgPanel()
-        }, lin(W.M, 58))
-        if (!Ck.isC) {
-            body.addView(cap("Тема (стиль «Стекло»)"), lin(W.M, W.WR).apply { topMargin = 18; bottomMargin = 8 })
-            body.addView(themeRow(), lin(W.M, 70))
-        }
+            if (m == "video" && Videos.list.isEmpty()) Videos.scanAsync(a) { if (Videos.list.isEmpty()) ck.showToast("На флешке нет папки ${Videos.DIR} с .mp4") else { ck.applyBackground(); ck.build() } }
+        }, lin(W.M, 60))
+        body.addView(t(19f, Ck.accent(), true, 2).apply { text = "Сейчас: " + modeText(cur) }, lin(W.M, W.WR).apply { topMargin = 10 })
+        // 2) the settings of THIS mode only
         val g = group()
-        g.rows(
-            W.row(a, "Волны", "Медленное движение фона темы", W.Toggle(a, K.waves) { K.waves = it; ck.bg.refresh() }, 76, 42),
-            W.row(a, "Размытие фото и видео", null, W.Toggle(a, K.blur) { K.blur = it; ck.applyBackground() }, 76, 42),
-            W.row(a, "Яркость фона", null, W.Slider(a, K.bright, 30, 100) { v, done -> if (done) { K.bright = v; ck.applyBackground() } }, 300, 44),
-            W.row(a, "Дождь и снег", "Капли и снежинки на фото по погоде", W.Toggle(a, K.particles) { K.particles = it; ck.applyBackground() }, 76, 42)
-        )
-        body.addView(g, lin(W.M, W.WR).apply { topMargin = 16 })
-        val b = W.hbox(a)
-        b.addView(W.button(a, "Фото природы…", 220, 56) { gallery() }, lin(W.WR, 56).apply { rightMargin = 12 })
-        b.addView(W.button(a, "Видео с флешки…", 220, 56) { gallery(video = true) }, lin(W.WR, 56))
-        body.addView(b, lin(W.M, W.WR).apply { topMargin = 16 })
-        s.put(scroll(body), 28, 86, 804, 456)
+        when (cur) {
+            "theme" -> {
+                if (!Ck.isC) { val th = W.vbox(a).apply { setPadding(0, 10, 0, 10) }; th.addView(t(21f).apply { text = "Цвет темы" }); th.addView(android.widget.HorizontalScrollView(a).apply { isHorizontalScrollBarEnabled = false; addView(themeRow()) }, lin(W.M, 64).apply { topMargin = 8 }); g.rows(th) }
+                else g.rows(W.row(a, "Тема «Линзы»", "Чёрная панель. Цветные темы — у стиля «Стекло» (Настройки → Внешний вид)", null))
+                if (!Ck.isC) g.rows(W.row(a, "Волны", "Медленное движение фона", W.Toggle(a, K.waves) { K.waves = it; ck.bg.refresh() }, 76, 42))
+            }
+            "cover" -> {
+                g.rows(W.row(a, "Цвет из обложки трека", "Фон и подсветка меняются под каждую песню. Нет обложки — цвет темы", null))
+                if (!Ck.isC) g.rows(W.row(a, "Волны", "Медленное движение фона", W.Toggle(a, K.waves) { K.waves = it; ck.bg.refresh() }, 76, 42))
+            }
+            "scene" -> g.rows(
+                W.row(a, "Фото", (if (K.scene == "auto") "Авто по погоде: " else "") + Scenes.current().name, W.button(a, "Выбрать…", 160, 50) { gallery() }, W.WR, 50),
+                W.row(a, "Размытие", null, W.Toggle(a, K.blur) { K.blur = it; ck.applyBackground() }, 76, 42))
+            "video" -> g.rows(
+                W.row(a, "Видео", Videos.chosen()?.name ?: "не найдено — папка ${Videos.DIR} на флешке", W.button(a, "Выбрать…", 160, 50) { gallery(video = true) }, W.WR, 50),
+                W.row(a, "Размытие", null, W.Toggle(a, K.blur) { K.blur = it; ck.applyBackground() }, 76, 42))
+        }
+        // 3) brightness — works for every mode
+        g.rows(W.row(a, "Яркость фона", if (cur == "scene") "Для фото" else "Темнее / светлее", W.Slider(a, K.bright, 30, 100) { v, done ->
+            K.bright = v; ck.refreshFx(); if (done && cur == "scene") ck.applyBackground()
+        }, 300, 44))
+        body.addView(g, lin(W.M, W.WR).apply { topMargin = 12 })
+        // 4) rain / snow
+        body.addView(cap("Дождь и снег"), lin(W.M, W.WR).apply { topMargin = 16; bottomMargin = 8 })
+        val f = group(); fxRows(f) { close("bg"); bgPanel() }
+        body.addView(f, lin(W.M, W.WR))
+        s.put(scroll(body), 28, 84, 824, 490)
+    }
+    private fun modeText(m: String) = when (m) {
+        "cover" -> "Обложка — цвет из обложки трека"; "scene" -> "Природа — фото " + if (K.scene == "auto") "по погоде" else "«${Scenes.current().name}»"
+        "video" -> "Видео с флешки" + (Videos.chosen()?.let { " — ${Videos.nice(it.name).first}" } ?: " — не найдено"); else -> if (Ck.isC) "Тема — чёрная «Линза»" else "Тема — " + Ck.theme().name
+    }
+    /** rain / snow rows (quick panel and settings): on/off, «По погоде», or always rain / snow */
+    private fun fxRows(g: LinearLayout, reopen: () -> Unit) {
+        g.rows(W.row(a, "Показывать дождь и снег", "Лёгкая анимация поверх фона", W.Toggle(a, K.particles) { K.particles = it; ck.refreshFx(); reopen() }, 76, 42))
+        if (!K.particles) return
+        g.rows(W.row(a, "По погоде", if (K.fxAuto) "Только когда за окном дождь или снег (на фото и видео)" else "Выключено — показываю то, что выбрано ниже, всегда", W.Toggle(a, K.fxAuto) { K.fxAuto = it; ck.refreshFx(); reopen() }, 76, 42))
+        if (!K.fxAuto) {
+            val opts = listOf("rain" to "Дождь", "snow" to "Снег")
+            val c = W.vbox(a).apply { setPadding(0, 8, 0, 12) }
+            c.addView(W.seg(a, opts.map { it.second }, opts.indexOfFirst { it.first == K.fxKind }.coerceAtLeast(0)) { K.fxKind = opts[it].first; ck.refreshFx() }, lin(W.M, 54))
+            g.rows(c)
+        }
     }
     private fun themeRow(): LinearLayout {
         val r = W.hbox(a)
@@ -223,6 +257,82 @@ class Overlays(private val ck: Cockpit) {
     }
 
     // ================================================================== tile editor
+    // ================================================================== Все приложения (v1.7.2)
+    private var appsShowHidden = false
+    private fun hiddenSet() = K.hiddenApps.split(',').filter { it.isNotEmpty() }.toMutableSet()
+    /** full app grid: search, A–Я, tap = open, hold = add as a home tile / hide */
+    fun allApps(query: String = "") {
+        val s = popup("apps", 30, 20, 1220, 680)
+        s.put(W.header(a, "grid", "Все приложения", null) { close("apps") }, 28, 14, 1164, 56)
+        val search = EditText(a).apply {
+            hint = "Поиск приложения"; setHintTextColor(0x80FFFFFF.toInt()); setText(query); setSelection(query.length)
+            setTextColor(Color.WHITE); textSize = 22f; typeface = Ck.face(); setSingleLine(); inputType = InputType.TYPE_CLASS_TEXT
+            imeOptions = EditorInfo.IME_ACTION_DONE; setPadding(20, 0, 20, 0); background = Panel(0x24FFFFFF, 0x40FFFFFF, 1.2f, floatArrayOf(16f, 16f, 16f, 16f), false)
+            contentDescription = "Поиск приложения"
+        }
+        s.put(search, 28, 84, 860, 60)
+        val hidden = hiddenSet()
+        val hb = W.button(a, if (appsShowHidden) "Скрыть скрытые" else "Скрытые: ${hidden.size}", 260, 60) { appsShowHidden = !appsShowHidden; allApps(search.text.toString()) }
+        s.put(hb, 904, 84, 288, 60)
+        val gridBox = W.vbox(a)
+        val sv = scroll(gridBox)
+        s.put(sv, 28, 158, 1164, 508)
+        val status = t(20f, 0xB3FFFFFF.toInt(), lines = 2, g = Gravity.CENTER)
+        fun fill(all: List<AppRepo.App>) {
+            gridBox.removeAllViews()
+            val q = search.text.toString().trim().lowercase()
+            val hs = hiddenSet()
+            val col = java.text.Collator.getInstance(java.util.Locale("ru"))
+            val list = all.filter { it.pkg != a.packageName && (appsShowHidden || it.pkg !in hs) && (q.isEmpty() || it.label.lowercase().contains(q) || it.pkg.lowercase().contains(q)) }
+                .sortedWith { x, y -> col.compare(x.label, y.label) }
+            if (list.isEmpty()) { status.text = if (q.isEmpty()) "Приложений нет" else "Ничего не найдено по «$q»"; gridBox.addView(status, lin(W.M, 120)); return }
+            val cols = 6; val cw = 1164 / cols
+            list.chunked(cols).forEach { rowApps ->
+                val row = W.hbox(a)
+                for (app in rowApps) {
+                    val c = W.vbox(a).apply { gravity = Gravity.CENTER_HORIZONTAL; setPadding(8, 14, 8, 10) }
+                    val iv = ImageView(a).apply { scaleType = ImageView.ScaleType.FIT_CENTER; if (app.pkg in hs) alpha = .4f }
+                    AppRepo.bindIcon(a, app.pkg, app.cls, iv)
+                    c.addView(iv, lin(76, 76))
+                    c.addView(t(18f, if (app.pkg in hs) 0x80FFFFFF.toInt() else Color.WHITE, lines = 2, g = Gravity.CENTER).apply { text = app.label }, lin(W.M, W.WR).apply { topMargin = 8 })
+                    c.contentDescription = app.label
+                    Ck.pressable(c, { appMenu(app) { allApps(search.text.toString()) } }) { if (AppRepo.launch(a, app.pkg, app.cls)) close("apps") }
+                    row.addView(c, lin(cw, 162))
+                }
+                gridBox.addView(row, lin(W.M, 162))
+            }
+        }
+        status.text = "Загружаю список…"; gridBox.addView(status, lin(W.M, 120))
+        var loaded: List<AppRepo.App> = emptyList()
+        AppRepo.loadAsync(a) { l -> loaded = l; fill(l) }
+        search.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {}
+            override fun onTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {}
+            override fun afterTextChanged(e: android.text.Editable?) { fill(loaded); sv.scrollTo(0, 0) }
+        })
+    }
+    private fun appMenu(app: AppRepo.App, reopen: () -> Unit) {
+        val s = popup("appmenu", 390, 170, 500, 380)
+        s.put(W.header(a, "grid", app.label, null) { close("appmenu") }, 28, 14, 444, 56)
+        val body = W.vbox(a)
+        val tiles = CkTiles.load()
+        val onHome = tiles.any { it.kind == "app" && it.pkg == app.pkg }
+        body.addView(W.button(a, if (onHome) "Уже на главном экране" else "На главный экран", 444, 62, primary = !onHome) {
+            if (!onHome) { CkTiles.save(tiles + CkTiles.Tile("app", app.pkg, app.cls, CkTiles.iconFor(app.pkg), app.label.take(14))); ck.build(); ck.showToast("«${app.label}» — плитка на главном экране") }
+            close("appmenu")
+        }, lin(W.M, 62))
+        val hs = hiddenSet(); val hidden = app.pkg in hs
+        body.addView(W.button(a, if (hidden) "Показать в списке" else "Скрыть из списка", 444, 62) {
+            if (hidden) hs.remove(app.pkg) else hs.add(app.pkg); K.hiddenApps = hs.joinToString(",")
+            close("appmenu"); reopen()
+            if (!hidden) ck.showToast("Скрыто. Вернуть — кнопка «Скрытые» вверху")
+        }, lin(W.M, 62).apply { topMargin = 12 })
+        body.addView(W.button(a, "О приложении", 444, 62) {
+            close("appmenu"); AppRepo.startSafe(a, Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + app.pkg)))
+        }, lin(W.M, 62).apply { topMargin = 12 })
+        s.put(body, 28, 84, 444, 270)
+    }
+
     fun tileSheet(index: Int) {
         val all = CkTiles.load().toMutableList()
         val cur = all.getOrNull(index)
@@ -264,6 +374,11 @@ class Overlays(private val ck: Cockpit) {
         s.put(scroll(body), 28, 84, 944, 466)
         val bar = W.hbox(a)
         if (cur != null) bar.addView(W.button(a, "Убрать плитку", 220, 58, danger = true) { all.removeAt(index); CkTiles.save(all); close("tile"); ck.build() }, lin(W.WR, 58))
+        // v1.7.2: move without dragging (works across pages)
+        if (cur != null) {
+            bar.addView(W.button(a, "◀ Влево", 150, 58) { if (index > 0) { close("tile"); tileSheet(ck.moveTile(index, -1)) } }.apply { contentDescription = "Переместить влево"; alpha = if (index > 0) 1f else .35f }, lin(W.WR, 58).apply { leftMargin = 12 })
+            bar.addView(W.button(a, "Вправо ▶", 150, 58) { if (index < all.size - 1) { close("tile"); tileSheet(ck.moveTile(index, 1)) } }.apply { contentDescription = "Переместить вправо"; alpha = if (index < all.size - 1) 1f else .35f }, lin(W.WR, 58).apply { leftMargin = 12 })
+        }
         bar.addView(View(a), lin(0, 1, 1f))
         bar.addView(W.button(a, "Отмена", 160, 58) { close("tile") }, lin(W.WR, 58).apply { rightMargin = 12 })
         bar.addView(W.button(a, "Сохранить", 200, 58, primary = true) {
@@ -275,7 +390,7 @@ class Overlays(private val ck: Cockpit) {
         s.put(bar, 28, 564, 944, 58)
     }
     private fun describe(t: CkTiles.Tile) = when (t.kind) {
-        "radio" -> "Радио магнитолы"; "nav" -> "Навигатор по умолчанию (${Nav.name(a, Nav.defaultNav(a))})"; "cam" -> "Камера"; "settings" -> "Настройки Car Launcher"
+        "radio" -> "Радио магнитолы"; "nav" -> "Навигатор по умолчанию (${Nav.name(a, Nav.defaultNav(a))})"; "cam" -> "Камера"; "settings" -> "Настройки Car Launcher"; "apps" -> "Все приложения (список с поиском)"
         "music" -> "Музыка"; "app" -> Tiles.label(a, t.pkg); else -> t.kind
     }
 
@@ -353,8 +468,9 @@ class Overlays(private val ck: Cockpit) {
             W.row(a, "Фото природы", Scenes.current().name, null) { gallery() },
             W.row(a, "Видео с флешки", Videos.chosen()?.name ?: "не выбрано · найдено ${Videos.list.size}", null) { gallery(true) },
             W.row(a, "Размытие фото и видео", null, W.Toggle(a, K.blur) { K.blur = it; ck.applyBackground() }, 76, 42),
-            W.row(a, "Яркость фона", null, W.Slider(a, K.bright, 30, 100) { v, done -> if (done) { K.bright = v; ck.applyBackground() } }, 300, 44),
-            W.row(a, "Дождь и снег на фото", "Лёгкая анимация по погоде", W.Toggle(a, K.particles) { K.particles = it; ck.applyBackground() }, 76, 42))
+            W.row(a, "Яркость фона", "Для всех фонов: темы, обложки, фото и видео", W.Slider(a, K.bright, 30, 100) { v, done -> K.bright = v; ck.refreshFx(); if (done && K.bg == "scene") ck.applyBackground() }, 300, 44))
+        val fx = group(); fxRows(fx) { refreshSettings() }
+        p.addView(cap("Дождь и снег"), lin(W.M, W.WR).apply { topMargin = 14; bottomMargin = 8; leftMargin = 6 }); p.addView(fx, lin(W.M, W.WR))
     }
     private fun themeRowSettings(): LinearLayout {
         val r = W.hbox(a)
@@ -373,7 +489,7 @@ class Overlays(private val ck: Cockpit) {
         add(p, null,
             W.row(a, "Изменить плитки", "Добавить, убрать, переставить, переименовать, выбрать значок и приложение. Или удерживайте любую плитку", null) { close("settings"); ck.home(); ck.editing = true; ck.build() },
             W.row(a, "Добавить плитку", null, Ck.icon(a, "plus"), 26, 26) { tileSheet(-1) },
-            W.row(a, "Вернуть стандартные", "Радио · Навигатор · Камера · Настройки", null) { CkTiles.reset(); ck.build(); ck.showToast("Плитки как при установке") })
+            W.row(a, "Вернуть стандартные", "Радио · Навигатор · Камера · Все приложения · Настройки", null) { CkTiles.reset(); ck.build(); ck.showToast("Плитки как при установке") })
         add(p, "Запуск",
             segRow("Какой экран открывать", null, listOf("home" to "Главная", "music" to "Музыка", "last" to "Последний"), K.startScreen) { K.startScreen = it },
             W.row(a, "Навигатор по умолчанию", Nav.name(a, Nav.defaultNav(a)), null) { pickNav() })
@@ -389,11 +505,14 @@ class Overlays(private val ck: Cockpit) {
     }
     private fun secMusic(p: LinearLayout) {
         add(p, "Источники",
-            W.row(a, "Радио", Radio.freq ?: "открыть штатное радио", null) { ck.pickSource("radio") },
+            W.row(a, "Радио", Radio.freq ?: "включить радио", null) { ck.pickSource("radio") },
             W.row(a, "Яндекс Музыка / плеер", Nav.name(a, Nav.musicApp(a, null)), null) { ck.pickSource("music") },
             W.row(a, "Телефон по Bluetooth", CamApps.btMusic(a)?.let { Tiles.label(a, it) } ?: "не найдено", null) { ck.pickSource("phone") })
         add(p, "Радио",
-            W.row(a, "Кнопки ⏮ ⏭ и пресеты", "Нажатие — следующая / предыдущая станция из памяти радио, удержание ⏮ ⏭ — поиск. Частоты станций настраиваются в самом радио", null))
+            W.row(a, "Управление в лаунчере", "«Радио» в источниках включает радио прямо здесь, без экрана приложения. ⏮ ⏭ — поиск станции, удержание — шаг 0.1 МГц, ⏯ — звук выкл/вкл", null),
+            W.row(a, "Станции внизу", "Нажатие — включить станцию. Удержание — сохранить в эту кнопку текущую частоту. Сейчас: " + Presets.list().joinToString(" · ") { Presets.mhz(it.khz) }, null),
+            W.row(a, "Станции по умолчанию", "Астана: Europa Plus, Русское Радио, Радио Астана, Love Radio, Хит FM, Шалқар", null) { K.radioPresets = ""; ck.build(); refreshSettings(); ck.showToast("Станции — как при установке") },
+            W.row(a, "Открыть приложение радио", "Полный экран штатного радио", null) { Radio.open(a) })
         val pal = listOf("ref" to "Цвета обложки", "vu" to "Зелёный–красный")
         add(p, "Эквалайзер на экране",
             segRow("Цвет полос", "Полосы двигаются под музыку (без записи звука — по такту, если нет разрешения)", pal, K.eqPal) { K.eqPal = it; ck.build() },
@@ -453,11 +572,23 @@ class Overlays(private val ck: Cockpit) {
             W.row(a, "Car Launcher " + Updater.installedName(a), "Главный экран для TEYES / FYT. Не перехватывает кнопки руля и не меняет настройки магнитолы", null),
             W.row(a, "Классический экран 1.7.0", "Прежний интерфейс (на случай, если что-то не работает в новом)", null) { classic("") })
         add(p, "Вернуть штатный экран", *stockRows().toTypedArray())
+        val log = CrashLog.text(a)
+        add(p, "Журнал сбоев", W.row(a, "Журнал сбоев", if (log.isEmpty()) "Сбоев не было" else "Записей: ${log.split("=== ").size - 1}. Копия: Android/data/${a.packageName}/files/crash.log", null) { crashLog() })
         val cr = W.vbox(a).apply { setPadding(0, 10, 0, 10) }
         cr.addView(t(17f, 0xB3FFFFFF.toInt(), lines = 60).apply {
             text = Scenes.ALL.joinToString("\n") { "${it.name} — ${it.author} · ${it.licence}" } + "\n\nЛайм-кроссовер: иллюстрация по фото Suzuki S-Cross. Шрифты Orbitron и Jura — SIL Open Font License. Погода: Open-Meteo.com (CC BY 4.0)."
         })
         add(p, "Фото и авторы", cr)
+    }
+    fun crashLog() {
+        val s = popup("crash", 90, 40, 1100, 640)
+        s.put(W.header(a, "x", "Журнал сбоев", null) { close("crash") }, 28, 16, 1044, 56)
+        val log = CrashLog.text(a)
+        val tv = Ck.text(a, 15f, 0xCCFFFFFF.toInt(), android.graphics.Typeface.MONOSPACE, 4000).apply {
+            text = if (log.isEmpty()) "Сбоев не было." else log.takeLast(20000); setTextIsSelectable(false)
+        }
+        s.put(scroll(tv), 28, 84, 1044, 470)
+        s.put(W.button(a, "Очистить журнал", 220, 56, danger = true) { CrashLog.clear(a); close("crash"); ck.showToast("Журнал очищен") }, 28, 568, 220, 56)
     }
     private fun stockRows(): List<View> {
         val out = ArrayList<View>()
@@ -483,7 +614,9 @@ class Overlays(private val ck: Cockpit) {
 
     // ================================================================== «Память и очистка»
     private var cleanGen = 0
-    fun clean() {
+    private var cleanScroll: ScrollView? = null
+    fun clean(keepScroll: Boolean = false) {
+        val y = if (keepScroll) cleanScroll?.scrollY ?: 0 else 0
         val s = popup("clean", 40, 30, 1200, 660)
         s.put(W.header(a, "trash", "Память и очистка", null) { close("clean") }, 28, 16, 1144, 56)
         val body = W.vbox(a)
@@ -496,12 +629,17 @@ class Overlays(private val ck: Cockpit) {
         btns.addView(W.button(a, "Хранилище", 180, 56) { AppRepo.startSafe(a, Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS), Intent(Settings.ACTION_SETTINGS)) }, lin(W.WR, 56).apply { rightMargin = 12 })
         btns.addView(W.button(a, "Папки и APK…", 180, 56) { classic("clean") }, lin(W.WR, 56))
         body.addView(btns, lin(W.M, W.WR).apply { topMargin = 14 })
+        val how = group()
+        how.rows(W.row(a, "Как очистить кэш", "Android разрешает чистить кэш только на странице приложения. Нажмите «Очистить кэш» у приложения → откроется его страница → «Хранилище» (или «Память») → «Очистить кэш». Вернитесь назад — список обновится сам", null))
+        body.addView(how, lin(W.M, W.WR).apply { topMargin = 14 })
         val status = t(19f, 0xB3FFFFFF.toInt(), lines = 2).apply { text = "Считаю размеры…" }
         body.addView(status, lin(W.M, W.WR).apply { topMargin = 14; bottomMargin = 6 })
         val apps = group()
         body.addView(apps, lin(W.M, W.WR))
-        body.addView(t(16f, 0x80FFFFFF.toInt(), lines = 4).apply { text = "Car Launcher сам ничего не удаляет: «Кэш» открывает страницу приложения с кнопкой «Очистить кэш», «Удалить» — системное окно с подтверждением. Отмеченные «не трогать» нужны магнитоле." }, lin(W.M, W.WR).apply { topMargin = 12 })
-        s.put(scroll(body), 28, 84, 1144, 560)
+        body.addView(t(16f, 0x80FFFFFF.toInt(), lines = 4).apply { text = "Car Launcher сам ничего не удаляет: «Очистить кэш» открывает страницу приложения, «Удалить» — системное окно с подтверждением, встроенные приложения можно только «Отключить…» на их странице. Отмеченные «не трогать» нужны магнитоле." }, lin(W.M, W.WR).apply { topMargin = 12 })
+        val sv = scroll(body); cleanScroll = sv
+        s.put(sv, 28, 84, 1144, 560)
+        if (y > 0) sv.post { sv.scrollTo(0, y) }
         val g = ++cleanGen
         val app = a.applicationContext
         AppRepo.exec.execute {
@@ -541,11 +679,20 @@ class Overlays(private val ck: Cockpit) {
         col.addView(tl)
         col.addView(t(16f, 0x99FFFFFF.toInt()).apply { text = Storage.gb(s.total) + if (s.exact) " · данные ${Storage.gb(s.data)} · кэш ${Storage.gb(s.cache)}" else " · размер установки" })
         r.addView(col, lin(0, W.WR, 1f))
-        r.addView(W.button(a, "Кэш", 110, 50) { AppRepo.startSafe(a, Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + s.pkg))) }, lin(W.WR, 50).apply { leftMargin = 10 })
-        if (s.mark != Cleanup.Mark.KEEP && s.mark != Cleanup.Mark.SELF && (!s.system || s.updated))
-            r.addView(W.button(a, if (s.system) "Удалить обновл." else "Удалить", 130, 50, danger = true) {
+        r.addView(W.button(a, "Очистить кэш", 170, 50) {
+            ck.showToast("«${s.label}»: «Хранилище» → «Очистить кэш», затем назад")
+            AppRepo.startSafe(a, Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + s.pkg)))
+        }, lin(W.WR, 50).apply { leftMargin = 10 })
+        if (s.mark != Cleanup.Mark.KEEP && s.mark != Cleanup.Mark.SELF) {
+            if (!s.system) r.addView(W.button(a, "Удалить", 130, 50, danger = true) {
                 AppRepo.startSafe(a, Intent(Intent.ACTION_DELETE, Uri.parse("package:" + s.pkg)), Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + s.pkg)))
             }, lin(W.WR, 50).apply { leftMargin = 10 })
+            // v1.7.2: built into the unit → cannot be removed (uninstalling only rolls back its updates, it stays in the list) → «Отключить»
+            else r.addView(W.button(a, "Отключить…", 150, 50, danger = true) {
+                ck.showToast("«${s.label}» встроено в магнитолу: удалить нельзя — на его странице нажмите «Отключить»")
+                AppRepo.startSafe(a, Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + s.pkg)))
+            }, lin(W.WR, 50).apply { leftMargin = 10 })
+        }
         return r
     }
 }

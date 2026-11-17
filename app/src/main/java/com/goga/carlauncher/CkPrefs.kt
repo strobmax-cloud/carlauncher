@@ -48,6 +48,10 @@ object K {
     /** absolute path of the chosen video background */
     var video: String get() = s("video", ""); set(v) = ps("video", v)
     var tiles: String get() = s("tiles", ""); set(v) = ps("tiles", v)
+    /** v1.7.2: «Все приложения» was added once to an existing custom tile list (removing it later is respected) */
+    var appsTileAdded: Boolean get() = b("appsTileAdded", false); set(v) = pb("appsTileAdded", v)
+    /** v1.7.2: packages hidden in «Все приложения» (comma separated) */
+    var hiddenApps: String get() = s("hiddenApps", ""); set(v) = ps("hiddenApps", v)
     var startScreen: String get() = s("startScreen", "home"); set(v) = ps("startScreen", v)
     var lastScreen: Int get() = i("lastScreen", 0); set(v) = pi("lastScreen", v)
     var tilePage: Int get() = i("tilePage", 0); set(v) = pi("tilePage", v)
@@ -72,5 +76,11 @@ object K {
     var wxCity: String get() = s("wxCity", "Астана"); set(v) = ps("wxCity", v)
     var cleanedApks: Int get() = i("cleanedApks", 0); set(v) = pi("cleanedApks", v)
 
+    // v1.7.2
+    var radioPresets: String get() = s("radioPresets", ""); set(v) = ps("radioPresets", v)
+    /** rain / snow: true = by the weather, false = [fxKind] always */
+    var fxAuto: Boolean get() = b("fxAuto", true); set(v) = pb("fxAuto", v)
+    var fxKind: String get() = s("fxKind", "snow"); set(v) = ps("fxKind", v)     // none | rain | snow
+    var safeAt: Long get() = l("safeAt", 0L); set(v) = pl("safeAt", v)
     fun clearAll() = sp.edit().clear().commit()
 }

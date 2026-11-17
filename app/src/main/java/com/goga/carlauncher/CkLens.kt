@@ -101,7 +101,8 @@ class LensView(c: Context) : View(c) {
         return out
     }
 
-    override fun onDraw(cv: Canvas) {
+    override fun onDraw(cv: Canvas) { try { drawSafe1(cv) } catch (t: Throwable) { CrashLog.soft(t) } }
+    private fun drawSafe1(cv: Canvas) {
         cv.save(); cv.scale(width / 1280f, height / 720f)
         val lp = Lens.path
         p.reset(); p.isAntiAlias = true; p.isDither = true; p.isFilterBitmap = true
@@ -258,7 +259,8 @@ class EqView(c: Context) : View(c) {
     fun kick() { last = 0; invalidate() }
     override fun onVisibilityAggregated(isVisible: Boolean) { super.onVisibilityAggregated(isVisible); kick() }
 
-    override fun onDraw(cv: Canvas) {
+    override fun onDraw(cv: Canvas) { try { drawSafe2(cv) } catch (t: Throwable) { CrashLog.soft(t) } }
+    private fun drawSafe2(cv: Canvas) {
         val now = SystemClock.uptimeMillis()
         val dt = if (last == 0L) 0.033f else ((now - last) / 1000f).coerceAtMost(0.1f)
         last = now
@@ -371,7 +373,8 @@ class PodiumView(c: Context) : View(c) {
     private val p = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
     private val car: Bitmap? by lazy { try { BitmapFactory.decodeResource(resources, R.drawable.ck_car_front) } catch (_: Throwable) { null } }
     init { setLayerType(LAYER_TYPE_SOFTWARE, null) }
-    override fun onDraw(cv: Canvas) {
+    override fun onDraw(cv: Canvas) { try { drawSafe3(cv) } catch (t: Throwable) { CrashLog.soft(t) } }
+    private fun drawSafe3(cv: Canvas) {
         val b = car ?: return
         cv.save(); cv.scale(width / 1280f, height / 720f)
         val CW = if (big) 390f else 410f; val CH = CW * b.height / b.width
@@ -414,7 +417,8 @@ class GaugeD(c: Context) : View(c) {
     var accent = 0xFFFFB08A.toInt()
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     init { setLayerType(LAYER_TYPE_SOFTWARE, null) }
-    override fun onDraw(cv: Canvas) {
+    override fun onDraw(cv: Canvas) { try { drawSafe4(cv) } catch (t: Throwable) { CrashLog.soft(t) } }
+    private fun drawSafe4(cv: Canvas) {
         // view placed at (130, 142) 240×240 → local centre (120, 120)
         val cx = width / 2f; val cy = height / 2f; val R = 120f * width / 240f
         val a0 = 150f; val sw = 240f; val max = 160f
