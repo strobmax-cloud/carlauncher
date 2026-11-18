@@ -59,6 +59,20 @@ object K {
     /** v1.7.2: packages hidden in «Все приложения» (comma separated) */
     var hiddenApps: String get() = s("hiddenApps", ""); set(v) = ps("hiddenApps", v)
     var startScreen: String get() = s("startScreen", "home"); set(v) = ps("startScreen", v)
+    // ---- v1.7.5: system bar and ◁ ○ □ ----
+    /** hide the TEYES / FYT system bar while the launcher is in front (immersive; a swipe from the top shows it) */
+    var hideBar: Boolean get() = b("hideBar", true); set(v) = pb("hideBar", v)
+    /** −1 = auto (window insets), else design px kept free on top for the bar */
+    var topPad: Int get() = i("topPad", -1); set(v) = pi("topPad", v)
+    /** in-launcher ◁ ○ □: left | right | off */
+    var navPos: String get() = s("navPos", "left"); set(v) = ps("navPos", v)
+    /** floating ◁ ○ □ over other apps (accessibility overlay) */
+    var floatOn: Boolean get() = b("floatOn", false); set(v) = pb("floatOn", v)
+    /** 0 small, 1 medium, 2 large */
+    var floatSize: Int get() = i("floatSize", 1); set(v) = pi("floatSize", v)
+    var floatDim: Boolean get() = b("floatDim", true); set(v) = pb("floatDim", v)
+    var floatX: Int get() = i("floatX", -1); set(v) = pi("floatX", v)
+    var floatY: Int get() = i("floatY", -1); set(v) = pi("floatY", v)
     var lastScreen: Int get() = i("lastScreen", 0); set(v) = pi("lastScreen", v)
     var tilePage: Int get() = i("tilePage", 0); set(v) = pi("tilePage", v)
 

@@ -256,7 +256,11 @@ class CockpitTest {
         }
         val pm = ctx.packageManager
         val pi = pm.getPackageInfo(ctx.packageName, android.content.pm.PackageManager.GET_SERVICES)
-        assertTrue("no accessibility / key-filter service", pi.services.orEmpty().none { it.permission == "android.permission.BIND_ACCESSIBILITY_SERVICE" })
+        // v1.7.5: the only accessibility service is NavAccess (global Назад / Домой / Недавние) — and it never sees keys
+        assertTrue("only NavAccess", pi.services.orEmpty().filter { it.permission == "android.permission.BIND_ACCESSIBILITY_SERVICE" }.all { it.name.endsWith(".NavAccess") })
+        assertTrue("NavAccess does not handle keys", NavAccess::class.java.declaredMethods.none { it.name == "onKeyEvent" })
+        val cfg = File(System.getProperty("user.dir"), "src/main/res/xml/nav_access.xml").readText()
+        assertFalse("no key filtering", cfg.contains("FilterKeyEvents"))
         val src = File(System.getProperty("user.dir"), "src/main/java/com/goga/carlauncher").listFiles()!!.filter { it.name.endsWith(".kt") }.joinToString("\n") { it.readText() }
         for (bad in listOf("Settings.System.put", "Settings.Global.put", "Settings.Secure.put", "setMasterMute", "android.permission.WRITE_SECURE_SETTINGS"))
             assertFalse("never touch system settings: $bad", src.contains(bad))

@@ -78,7 +78,19 @@
         <service
             android:name=".MiniPlayer"
             android:exported="false" />
-        <!-- v1.7.1: the optional accessibility «Назад / Недавние» service was removed (the new screens have only «Главная»). -->
+        <!-- v1.7.5: optional accessibility service «Car Launcher — кнопки навигации»: only performGlobalAction
+             (Назад / Домой / Недавние) and the floating ◁ ○ □ (accessibility overlay). No key-event filtering
+             (steering-wheel keys untouched), no window content. Off until the user enables it in Спец. возможности. -->
+        <service
+            android:name=".NavAccess"
+            android:label="Car Launcher — кнопки навигации"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/nav_access" />
+        </service>
         <service
             android:name=".FloatNav"
             android:exported="false" />

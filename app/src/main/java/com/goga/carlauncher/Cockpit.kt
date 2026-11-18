@@ -139,6 +139,7 @@ class Cockpit(val a: MainActivity) {
         st.addView(bg, FrameLayout.LayoutParams(Ck.W, Ck.H))
         st.addView(dim, FrameLayout.LayoutParams(Ck.W, Ck.H))
         st.addView(particles, FrameLayout.LayoutParams(Ck.W, Ck.H))
+        st.bleed.add(bg); st.bleed.add(dim); st.bleed.add(particles)
         st.addView(page, FrameLayout.LayoutParams(Ck.W, Ck.H))
         st.addView(over, FrameLayout.LayoutParams(Ck.W, Ck.H))
         st.addView(volo, FrameLayout.LayoutParams(Ck.W, Ck.H))
@@ -202,7 +203,7 @@ class Cockpit(val a: MainActivity) {
         // v1.7.4: a video plays wherever the CURRENT screen's background is a video (also on «Фон»)
         val vf = if (mode == "video") Videos.chosen() else null
         if (vf != null) {
-            if (video == null) { video = VideoBg(a).also { v -> v.onFail = { a.runOnUiThread { showToast("Видео не воспроизводится — показываю фото"); st.removeView(v); video = null } }; st.addView(v, 1, FrameLayout.LayoutParams(Ck.W, Ck.H)) } }
+            if (video == null) { video = VideoBg(a).also { v -> v.onFail = { a.runOnUiThread { showToast("Видео не воспроизводится — показываю фото"); st.removeView(v); video = null } }; st.addView(v, 1, FrameLayout.LayoutParams(Ck.W, Ck.H)); st.bleed.add(v) } }
             video?.file = vf
         } else if (video != null) { video?.release(); st.removeView(video); video = null }
         bg.refresh()
@@ -342,8 +343,9 @@ class Cockpit(val a: MainActivity) {
     /** bottom switch «Главная / Музыка» + volume −/+ in both bottom corners */
     private fun bottom() {
         val bigk = big()
+        val nav = K.navPos != "off"
         if (Ck.isC) {
-            val bw = if (bigk) 200 else 180; val bh = if (bigk) 72 else 66
+            val bw = if (bigk) (if (nav) 180 else 200) else 180; val bh = if (bigk) 72 else 66
             val row = W.hbox(a)
             if (W.photoBehind) row.background = Panel(0x80060810.toInt(), 0x14FFFFFF, 1f, floatArrayOf(24f, 24f, 24f, 24f), false)
             TABS.forEachIndexed { i, (ic, n) ->
@@ -362,8 +364,9 @@ class Cockpit(val a: MainActivity) {
             val vw = if (bigk) 80 else 70; val vh = if (bigk) 70 else 62; val vy = if (bigk) 636 else 640
             volBtn(false, 20, vy, vw, vh, false); volBtn(true, 20 + vw + 6, vy, vw, vh, false)
             volBtn(false, 1260 - 2 * vw - 6, vy, vw, vh, false); volBtn(true, 1260 - vw, vy, vw, vh, false)
+            if (nav) sysNav(20 + 2 * vw + 6, 1260 - 2 * vw - 6, (Ck.W - (3 * bw + 16)) / 2, vy, vh, if (bigk) 54 else 58, false)
         } else {
-            val bw = if (bigk) 180 else 150; val bh = if (bigk) 78 else 72
+            val bw = if (bigk) (if (nav) 160 else 180) else 150; val bh = if (bigk) 78 else 72
             val row = W.hbox(a)
             TABS.forEachIndexed { i, (ic, n) ->
                 val on = i == screen
@@ -380,7 +383,38 @@ class Cockpit(val a: MainActivity) {
             val s = if (bigk) 74 else 64; val y = 720 - 16 - s
             volBtn(false, 28, y, s, s, true); volBtn(true, 28 + s + 14, y, s, s, true)
             volBtn(false, 1252 - 2 * s - 14, y, s, s, true); volBtn(true, 1252 - s, y, s, s, true)
+            if (nav) sysNav(28 + 2 * s + 14, 1252 - 2 * s - 14, (Ck.W - (3 * bw + 20)) / 2, y, s, if (bigk) 58 else 60, true)
         }
+    }
+
+    /**
+     * v1.7.5 ◁ ○ □ in the free space between the volume buttons and the tabs (the system bar on top sits under the
+     * phone holder). Left side by default — the side nearest the driver in a left-hand-drive car. □ «Недавние» needs
+     * the accessibility service «Car Launcher — кнопки навигации»; it is hidden while the service is off.
+     * [volL] = right edge of the left volume pair, [volR] = left edge of the right pair, [tabsL] = left edge of the tabs.
+     */
+    private fun sysNav(volL: Int, volR: Int, tabsL: Int, y: Int, hh: Int, bw0: Int, glass: Boolean) {
+        val rec = NavAccess.enabled(a)
+        val keys = listOf<Triple<String, String, () -> Unit>>(
+            Triple("sys_back", "Назад", { if (!back()) { if (screen != 0) home() else NavAccess.act(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK) } }),
+            Triple("sys_home", "Домой", { home() }),
+            Triple("sys_rec", "Недавние", { if (!NavAccess.act(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS)) overlays.navHelp() }))
+            .filter { it.first != "sys_rec" || rec }
+        val pill = W.hbox(a).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(6, 0, 6, 0); contentDescription = "Системные кнопки" }
+        val r = hh / 2f
+        pill.background = if (glass) Panel(0x24FFFFFF, 0x40FFFFFF, 1.2f, floatArrayOf(r, r, r, r), true)
+            else if (W.photoBehind) Panel(0x73060810, 0x14FFFFFF, 1f, floatArrayOf(16f, 16f, 16f, 16f), false)
+            else Panel(0x0DFFFFFF, 0x1AFFFFFF, 1f, floatArrayOf(16f, 16f, 16f, 16f), false)
+        val isz = if (big()) 30 else 28
+        for ((ic, n, f) in keys) {
+            val b = FrameLayout(a); b.contentDescription = n
+            b.addView(Ck.icon(a, ic, if (glass) 0xE6FFFFFF.toInt() else 0xCCFFFFFF.toInt()), FrameLayout.LayoutParams(isz, isz, Gravity.CENTER))
+            Ck.pressable(b) { f() }
+            pill.addView(b, lin(bw0, hh))
+        }
+        val pw = keys.size * bw0 + 12
+        val x = if (K.navPos == "right") { val l = Ck.W - tabsL; l + (volR - l - pw) / 2 } else volL + (tabsL - volL - pw) / 2
+        page.put(pill, x, y, pw, hh)
     }
 
     private val TABS = listOf("home" to "Главная", "note" to "Музыка", "img" to "Фон")

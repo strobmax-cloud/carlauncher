@@ -43,7 +43,12 @@ class Overlays(private val ck: Cockpit) {
     fun back(): Boolean { if (stack.isEmpty()) return false; closeTop(); return true }
     private fun hideKb() { try { a.getSystemService(InputMethodManager::class.java)?.hideSoftInputFromWindow(over.windowToken, 0) } catch (_: Throwable) {} }
     /** v1.7.2: back from the system «App info» / uninstall dialog → the list shows what is really installed now */
-    fun onResume() { if (stack.any { it.first == "clean" }) clean(keepScroll = true) }
+    fun onResume() {
+        if (stack.any { it.first == "clean" }) clean(keepScroll = true)
+        // v1.7.5: back from Спец. возможности → show the new service state
+        if (stack.any { it.first == "settings" } && section == "sysnav") refreshSettings()
+        if (stack.any { it.first == "navhelp" } && NavAccess.enabled(a)) { close("navhelp"); if (K.floatOn) NavAccess.refresh(); ck.build() }
+    }
     fun storageChanged() { if (stack.any { it.first == "gallery" }) { close("gallery"); gallery() } }
 
     /** veil + sheet at x,y,w,h; returns the sheet */
@@ -500,7 +505,7 @@ class Overlays(private val ck: Cockpit) {
     // ================================================================== Settings
     private val SECTIONS = listOf(
         "look" to ("pal" to "Внешний вид"), "tiles" to ("grid" to "Главный экран и плитки"), "music" to ("note" to "Музыка и радио"),
-        "car" to ("car" to "Машина и пробег"), "vol" to ("spk" to "Громкость"), "mem" to ("trash" to "Память и очистка"),
+        "car" to ("car" to "Машина и пробег"), "sysnav" to ("sys_home" to "Экран и кнопки ◁ ○ □"), "vol" to ("spk" to "Громкость"), "mem" to ("trash" to "Память и очистка"),
         "upd" to ("cloud2" to "Обновления"), "about" to ("star" to "О программе")
     )
     private var section = "look"
@@ -532,7 +537,7 @@ class Overlays(private val ck: Cockpit) {
         val right = W.vbox(a)
         right.addView(t(30f, Color.WHITE, true).apply { text = title }, lin(W.M, W.WR).apply { bottomMargin = 14 })
         when (section) {
-            "look" -> secLook(right); "tiles" -> secTiles(right); "music" -> secMusic(right); "car" -> secCar(right)
+            "look" -> secLook(right); "tiles" -> secTiles(right); "music" -> secMusic(right); "car" -> secCar(right); "sysnav" -> secSysNav(right)
             "vol" -> secVol(right); "mem" -> secMem(right); "upd" -> secUpd(right); else -> secAbout(right)
         }
         v.put(scroll(right.apply { setPadding(0, 6, 0, 30) }), 384, 30, 780, 666)
@@ -674,6 +679,36 @@ class Overlays(private val ck: Cockpit) {
             W.row(a, "Проверить обновления", "Скачивается с GitHub, проверяется подпись и контрольная сумма. После установки файл обновления удаляется", null) { Updater.check(a) },
             W.row(a, "С телефона по Wi‑Fi", "Передать APK с телефона на магнитолу", null) { classic("upload") })
     }
+    /** v1.7.5: the system bar of the unit, ◁ ○ □ in the launcher and floating over other apps */
+    private fun secSysNav(p: LinearLayout) {
+        val ma = a as? MainActivity
+        add(p, "Системная панель сверху",
+            W.row(a, "Скрывать системную панель в лаунчере", "Только в Car Launcher. Показать на время — провести от верхнего края вниз. В других приложениях панель остаётся",
+                W.Toggle(a, K.hideBar) { K.hideBar = it; ma?.applyBars(); ck.root.requestApplyInsets(); ck.root.postDelayed({ refreshSettings() }, 600) }, 76, 42),
+            W.row(a, "Сейчас", ma?.screenInfo() ?: "", null))
+        if (!K.hideBar) add(p, null, segRow("Место под панель сверху", "«Авто» — как сообщает магнитола. Если интерфейс заходит под панель или над ним пустая полоса — выберите вручную",
+            listOf("-1" to "Авто", "0" to "0", "40" to "40", "60" to "60", "80" to "80"), K.topPad.toString()) { K.topPad = it.toInt(); ck.root.requestApplyInsets(); ck.root.requestLayout(); ck.root.postDelayed({ refreshSettings() }, 300) })
+        add(p, "Кнопки ◁ ○ □ в лаунчере",
+            segRow("Где показывать", "Внизу между громкостью и вкладками. Слева — ближе к водителю. □ «Недавние» появится, когда включена служба (ниже)",
+                listOf("left" to "Слева", "right" to "Справа", "off" to "Не показывать"), K.navPos) { K.navPos = it; ck.build(); refreshSettings() })
+        val on = NavAccess.enabled(a)
+        add(p, "Поверх других приложений",
+            W.row(a, "Служба «Car Launcher — кнопки навигации»", if (on) "Включена. Нужна для □ «Недавние», «Назад» в других приложениях и плавающих кнопок" else "Выключена. Нажмите, чтобы включить (Спец. возможности Android)", null) { navHelp() },
+            W.row(a, "Плавающие кнопки ◁ ○ □", "Поверх навигатора, музыки и др. Перетаскиваются за полоску слева, место запоминается",
+                W.Toggle(a, K.floatOn) { K.floatOn = it; if (it && !NavAccess.enabled(a)) navHelp(); NavAccess.refresh() }, 76, 42),
+            segRow("Размер плавающих кнопок", null, listOf("0" to "Маленькие", "1" to "Средние", "2" to "Крупные"), K.floatSize.toString()) { K.floatSize = it.toInt(); NavAccess.refresh() },
+            W.row(a, "Приглушать через 4 секунды", "Кнопки становятся почти прозрачными, касание — снова яркие", W.Toggle(a, K.floatDim) { K.floatDim = it; NavAccess.refresh() }, 76, 42),
+            W.row(a, "Вернуть кнопки в правый нижний угол", null, null) { K.floatX = -1; K.floatY = -1; NavAccess.refresh(); ck.showToast("Кнопки — в правом нижнем углу") })
+    }
+    /** v1.7.5: how to switch on the accessibility service (RU, step by step) */
+    fun navHelp() {
+        val s = popup("navhelp", 300, 60, 680, 600)
+        s.put(W.header(a, "sys_home", "Кнопки навигации", null) { close("navhelp") }, 28, 14, 624, 56)
+        s.put(t(19f, 0xE6FFFFFF.toInt(), lines = 20).apply { text = NavKeys.HOW }, 28, 80, 624, 420)
+        s.put(W.button(a, "Открыть настройки", 300, 64, primary = true) { NavKeys.openSettings(a) }, 28, 514, 300, 64)
+        s.put(W.button(a, "Позже", 280, 64) { close("navhelp") }, 352, 514, 300, 64)
+    }
+
     private fun secAbout(p: LinearLayout) {
         add(p, null,
             W.row(a, "Car Launcher " + Updater.installedName(a), "Главный экран для TEYES / FYT. Не перехватывает кнопки руля и не меняет настройки магнитолы", null),

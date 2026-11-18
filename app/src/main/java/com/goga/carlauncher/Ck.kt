@@ -160,25 +160,69 @@ class Panel(
 /**
  * The 1280×720 design stage, scaled (uniformly) and centred into the real window. Touches are mapped by the framework
  * (view transforms), so every child works in design pixels.
+ *
+ * v1.7.5: the TEYES / FYT system bar on top (◁ ○ □, Wi-Fi, weather, voltage — com.android.systemui) takes ~40 px of
+ * a 1280×720 screen. Either the window is shorter (1280×680 → the 16:9 stage was letterboxed with black side strips)
+ * or the bar is drawn over the window. Now: the window always spans the whole screen (LAYOUT_FULLSCREEN), the stage is
+ * fitted into the part not covered by the bar ([topInset], 0 when the launcher hides the bar), and the background
+ * layers ([bleed]) reach past the stage to every edge, so a narrower area has no black strips.
  */
 class Stage(c: Context) : FrameLayout(c) {
-    val stage = FrameLayout(c).apply { clipChildren = true }
+    val stage = StageBox(c).apply { clipChildren = false }
     var scale = 1f; private set
+    /** system bar height over our window (px, real), from the window insets */
+    var topInset = 0; private set
+    var bottomInset = 0; private set
     init {
         setBackgroundColor(Color.BLACK)
+        clipChildren = false
         addView(stage, LayoutParams(Ck.W, Ck.H))
+    }
+    override fun onApplyWindowInsets(insets: android.view.WindowInsets): android.view.WindowInsets {
+        // manual override (Настройки → Экран и кнопки), for a firmware whose bar does not report its height
+        val t = if (K.ready && K.topPad >= 0 && !K.hideBar) K.topPad else insets.systemWindowInsetTop; val b = insets.systemWindowInsetBottom
+        if (t != topInset || b != bottomInset) { topInset = t; bottomInset = b; requestLayout() }
+        return insets
     }
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
         val w = r - l; val h = b - t
-        stage.layout(0, 0, Ck.W, Ck.H)
-        if (w > 0 && h > 0) {
-            scale = minOf(w / Ck.W.toFloat(), h / Ck.H.toFloat())
+        val ah = h - topInset - bottomInset
+        if (w > 0 && ah > 0) {
+            scale = minOf(w / Ck.W.toFloat(), ah / Ck.H.toFloat())
+            val tx = (w - Ck.W * scale) / 2f; val ty = topInset + (ah - Ck.H * scale) / 2f
+            // background layers bleed to the window edges (in design px)
+            stage.setBleed(Math.ceil((tx / scale).toDouble()).toInt(), Math.ceil((ty / scale).toDouble()).toInt(),
+                Math.ceil(((w - tx - Ck.W * scale) / scale).toDouble()).toInt(), Math.ceil(((h - ty - Ck.H * scale) / scale).toDouble()).toInt())
             stage.pivotX = 0f; stage.pivotY = 0f; stage.scaleX = scale; stage.scaleY = scale
-            stage.translationX = (w - Ck.W * scale) / 2f; stage.translationY = (h - Ck.H * scale) / 2f
+            stage.translationX = tx; stage.translationY = ty
         }
+        stage.measure(MeasureSpec.makeMeasureSpec(Ck.W, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(Ck.H, MeasureSpec.EXACTLY))
+        stage.layout(0, 0, Ck.W, Ck.H)
     }
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         stage.measure(MeasureSpec.makeMeasureSpec(Ck.W, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(Ck.H, MeasureSpec.EXACTLY))
         setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.getSize(heightMeasureSpec))
+    }
+}
+
+/** the design-space stage; children in [bleed] (background, video, veil, rain) are laid out past its edges by bl/bt/br/bb */
+class StageBox(c: Context) : FrameLayout(c) {
+    val bleed: MutableSet<View> = java.util.Collections.newSetFromMap(java.util.WeakHashMap())
+    var bl = 0; private set
+    var bt = 0; private set
+    var br = 0; private set
+    var bb = 0; private set
+    fun setBleed(l: Int, t: Int, r: Int, b: Int) {
+        if (l == bl && t == bt && r == br && b == bb) return
+        bl = l; bt = t; br = r; bb = b
+        forceLayout(); for (i in 0 until childCount) getChildAt(i).let { if (it in bleed) it.forceLayout() }
+    }
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+        for (i in 0 until childCount) { val v = getChildAt(i); if (v in bleed) v.measure(MeasureSpec.makeMeasureSpec(Ck.W + bl + br, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(Ck.H + bt + bb, MeasureSpec.EXACTLY)) }
+    }
+    override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+        super.onLayout(changed, l, t, r, b)
+        for (i in 0 until childCount) { val v = getChildAt(i); if (v in bleed) v.layout(-bl, -bt, Ck.W + br, Ck.H + bb) }
     }
 }
