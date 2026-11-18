@@ -22,7 +22,9 @@ object NY3 {
     class Prop(val asset: String, val cx: Float, val cy: Float, val w: Float, val rot: Float = 0f, val flip: Boolean = false,
                val behind: Boolean = false, val lights: Int = 0, val cones: List<PointF> = emptyList(), val seed: Int = 1)
     class Spec(val garlands: List<Garland>, val caps: List<Cap>, val lensSnow: Boolean, val props: List<Prop>,
-               val shadows: List<RectF>, val multi: Boolean, val driftTint: Int = 0)
+               val shadows: List<RectF>, val multi: Boolean, val driftTint: Int = 0,
+               /** how much higher the drift climbs towards the corners (design px) */ val driftRise: Float = 34f,
+               /** small snow mounds drawn in front (props nestled in the drift) */ val mounds: List<RectF> = emptyList())
 
     // ---------------- helpers ----------------
     fun noise(seed: Int, x: Float): Float {
@@ -60,7 +62,7 @@ class NY3Back(c: Context, val s: NY3.Spec) : View(c) {
         var x = -10f
         while (x <= 1290f) {
             val edge = (abs(x - 640f) / 640f).coerceIn(0f, 1f)
-            val base = 706f - 34f * edge.pow(1.8f)
+            val base = 706f - s.driftRise * edge.pow(1.8f)
             val y = base - 9f * NY3.noise(11, x * .35f) - 4f * NY3.noise(23, x * .8f)
             pts.add(PointF(x, y)); x += 8f
         }
@@ -101,6 +103,7 @@ class NY3Front(c: Context, val s: NY3.Spec) : View(c) {
         for (cp in s.caps) cap(cv, cp)
         if (s.lensSnow) lensSnow(cv)
         for (pr in s.props) if (!pr.behind) NY3Props.draw(context, cv, pr, s.multi)
+        for (m in s.mounds) mound(cv, m)
         for (g in s.garlands) garland(cv, g)
         cv.restore()
     }
@@ -139,6 +142,21 @@ class NY3Front(c: Context, val s: NY3.Spec) : View(c) {
         cv.drawOval(RectF(x - 3.3f * z, y + 3f * z, x + 3.3f * z, y + 12.2f * z), p)
         p.shader = null; p.color = 0xCCFFFFFF.toInt(); cv.drawOval(RectF(x - 1.9f * z, y + 4.4f * z, x - .5f * z, y + 7.4f * z), p)
         cv.restore()
+    }
+
+    /** a soft heap of snow in front of a prop, so it sits *in* the drift */
+    private fun mound(cv: Canvas, m: RectF) {
+        val path = Path(); path.moveTo(m.left, m.bottom)
+        val n = 14
+        for (i in 0..n) { val u = i / n.toFloat(); val x = m.left + m.width() * u
+            val y = m.bottom - m.height() * sin(PI.toFloat() * u).pow(.7f) * (.82f + .18f * NY3.noise(41, x * 1.3f))
+            path.lineTo(x, y) }
+        path.lineTo(m.right, m.bottom); path.close()
+        p.style = Paint.Style.FILL; p.color = 0x55050A18; p.maskFilter = BlurMaskFilter(4f, BlurMaskFilter.Blur.NORMAL)
+        cv.save(); cv.translate(0f, -2f); cv.drawPath(path, p); cv.restore(); p.maskFilter = null
+        p.color = Color.WHITE
+        p.shader = LinearGradient(0f, m.top, 0f, m.bottom, intArrayOf(0xFFFFFFFF.toInt(), 0xFFE9EFF8.toInt(), 0xFFC2CEE2.toInt()), floatArrayOf(0f, .5f, 1f), Shader.TileMode.CLAMP)
+        cv.drawPath(path, p); p.shader = null
     }
 
     // ---------------- snow caps ----------------
@@ -319,14 +337,21 @@ object NewYear3 {
                     NY3.Prop("ny_fir_sprig", 1190f, 330f, 230f, 15f, flip = true, lights = 3, seed = 7),
                     NY3.Prop("ny_fir_baubles", 438f, 94f, 160f, 5f, seed = 8)),
                 shadows = dBottom, multi = multi)
-            else -> NY3.Spec(                                                                    // D-fon
-                garlands = listOf(NY3.Garland(listOf(pf(-10f, 0f), pf(260f, 2f), pf(514f, 2f), pf(728f, 2f), pf(1150f, 0f)), listOf(9f, 9f, 62f, 10f), 30f)),
+            else -> NY3.Spec(                                                                    // D-fon: the most festive screen
+                garlands = listOf(
+                    // top: one long, uneven run of swags (deeper over the free middle)
+                    NY3.Garland(listOf(pf(-10f, 0f), pf(260f, 2f), pf(514f, 2f), pf(728f, 2f), pf(1150f, 0f)), listOf(9f, 9f, 62f, 10f), 30f),
+                    // right edge: draped down from the top-right corner in sagging loops (left edge has the big branch instead)
+                    NY3.Garland(listOf(pf(1292f, 84f), pf(1226f, 196f), pf(1290f, 300f), pf(1214f, 420f), pf(1292f, 540f)), listOf(26f, 22f, 30f, 24f), 28f),
+                    // bottom-left corner: a short swag over the drift, above the volume buttons
+                    NY3.Garland(listOf(pf(-8f, 520f), pf(150f, 600f), pf(330f, 612f)), listOf(22f, 26f), 28f)),
                 caps = listOf(NY3.Cap(394f, 886f, 570f, 30f, 6f)),
                 lensSnow = false,
                 props = listOf(
                     NY3.Prop("ny_fir_bough", 170f, 185f, 420f, 7f, lights = 5, seed = 9),
-                    NY3.Prop("ny_fir_sprig", 936f, 546f, 150f, -15f, cones = listOf(pf(968f, 578f)), seed = 10)),
-                shadows = dBottom, multi = multi)
+                    NY3.Prop("ny_fir_baubles", 1000f, 652f, 200f, -3f, seed = 10)),
+                shadows = dBottom, multi = multi, driftRise = 62f,
+                mounds = listOf(RectF(900f, 664f, 1100f, 700f)))
         }
     }
     fun attach(a: MainActivity, name: String) {
