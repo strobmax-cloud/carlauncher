@@ -124,8 +124,9 @@ class BgView(c: Context) : View(c) {
     private fun drawSafe1(cv: Canvas) {
         val b = base
         if (b == null) { cv.drawColor(if (Ck.isC) Color.BLACK else Ck.theme().b0); return }
-        val sx = width / Ck.W.toFloat()
-        cv.save(); cv.scale(sx, height / Ck.H.toFloat())
+        // v1.7.5: uniform «cover» scale — the layer may be wider / taller than 16:9 (it reaches the screen edges, see Stage)
+        val s = maxOf(width / Ck.W.toFloat(), height / Ck.H.toFloat())
+        cv.save(); cv.translate((width - Ck.W * s) / 2f, (height - Ck.H * s) / 2f); cv.scale(s, s)
         cv.drawBitmap(b, null, Rect(0, 0, Ck.W, Ck.H), paint)
         val t = (SystemClock.uptimeMillis() - t0) / 1000.0
         val anim = K.waves

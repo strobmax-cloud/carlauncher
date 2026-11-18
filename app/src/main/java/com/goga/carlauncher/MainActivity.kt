@@ -48,6 +48,7 @@ class MainActivity : Activity() {
         if (crashes >= 2) ck.showToast("Car Launcher перезапустился после сбоя: видео и анимации выключены. Журнал — Настройки → О программе")
         else if (intent?.getBooleanExtra("afterCrash", false) == true) ck.showToast("Car Launcher перезапустился после сбоя (записано в журнал)")
         setContentView(ck.root)
+        applyBars()
         registerReceiver(pkgReceiver, IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED); addAction(Intent.ACTION_PACKAGE_REMOVED); addAction(Intent.ACTION_PACKAGE_CHANGED); addDataScheme("package")
         })
@@ -94,8 +95,32 @@ class MainActivity : Activity() {
     }
 
     override fun onStart() { super.onStart(); started = true; ck.onStart() }
-    override fun onResume() { super.onResume(); ck.onResume() }
-    override fun onPause() { ck.onPause(); super.onPause() }
+    override fun onResume() { super.onResume(); applyBars(); NavAccess.launcherFront(true); ck.onResume() }
+    override fun onPause() { ck.onPause(); NavAccess.launcherFront(false); super.onPause() }
+    override fun onWindowFocusChanged(hasFocus: Boolean) { super.onWindowFocusChanged(hasFocus); if (hasFocus) applyBars() }
+
+    /**
+     * v1.7.5: our window always spans the whole screen; the stage is fitted under the system bar (insets) or, with
+     * «Скрывать системную панель», the bar is hidden in the launcher only (immersive sticky: a swipe from the top
+     * shows it for a moment). Nothing in Android settings is changed — other apps keep the bar.
+     */
+    @Suppress("DEPRECATION")
+    fun applyBars() {
+        val base = android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE or android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+        val hide = android.view.View.SYSTEM_UI_FLAG_FULLSCREEN or android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+        try {
+            window.decorView.systemUiVisibility = if (K.hideBar) base or hide else base
+            window.statusBarColor = android.graphics.Color.TRANSPARENT; window.navigationBarColor = android.graphics.Color.TRANSPARENT
+            ck.root.requestApplyInsets()
+        } catch (t: Throwable) { CrashLog.soft(t) }
+    }
+    /** for «О программе»: real screen, our window, the bar */
+    fun screenInfo(): String {
+        val dm = android.util.DisplayMetrics(); @Suppress("DEPRECATION") windowManager.defaultDisplay.getRealMetrics(dm)
+        val r = ck.root
+        return "Экран ${dm.widthPixels}×${dm.heightPixels}, окно ${r.width}×${r.height}, системная панель сверху: ${r.topInset} px" +
+            (if (K.hideBar) " (скрыта в лаунчере)" else "") + ", масштаб ${"%.2f".format(r.scale)}"
+    }
     override fun onStop() { started = false; ck.onStop(); super.onStop() }
 
     override fun onNewIntent(intent: Intent) {
