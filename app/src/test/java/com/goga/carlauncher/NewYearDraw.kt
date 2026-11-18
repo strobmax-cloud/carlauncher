@@ -206,7 +206,7 @@ object NewYear {
         val g = W.vbox(a).apply { setPadding(22, 6, 22, 6); background = Panel(0x14FFFFFF, 0x1FFFFFFF, 1f, floatArrayOf(20f, 20f, 20f, 20f), false) }
         val seg = W.vbox(a).apply { setPadding(0, 10, 0, 12) }
         seg.addView(t(22f).apply { text = "Праздничный режим" })
-        seg.addView(t(18f, 0x99FFFFFF.toInt(), lines = 2).apply { text = "Гирлянда, ёлочка и шарик в «Линзе» и «Стекле». «Авто» — с 20 декабря по 14 января" }, W.lin(W.M, W.WR).apply { topMargin = 2 })
+        seg.addView(t(18f, 0x99FFFFFF.toInt(), lines = 2).apply { text = "Провисающие гирлянды, снег на панелях, сугроб и еловые ветки. «Авто» — с 20 декабря по 14 января" }, W.lin(W.M, W.WR).apply { topMargin = 2 })
         seg.addView(W.seg(a, listOf("Выкл", "Вкл", "Авто · 20 дек – 14 янв"), 2) {}, W.lin(W.M, 54).apply { topMargin = 10 })
         g.addView(seg, W.lin(W.M, W.WR))
         g.addView(W.divider(a), W.lin(W.M, 1))
@@ -219,7 +219,14 @@ object NewYear {
         sl.addView(sr, W.lin(W.M, 44).apply { topMargin = 10 })
         g.addView(sl, W.lin(W.M, W.WR))
         g.addView(W.divider(a), W.lin(W.M, 1))
-        g.addView(W.row(a, "Снег", "Лёгкий снег на всех экранах, пока включён праздничный режим", W.Toggle(a, true) {}, 76, 42), W.lin(W.M, W.WR))
+        val lc = W.vbox(a).apply { setPadding(0, 12, 0, 12) }
+        lc.addView(t(22f).apply { text = "Огоньки" })
+        lc.addView(W.seg(a, listOf("Тёплые", "Разноцветные"), 0) {}, W.lin(W.M, 54).apply { topMargin = 10 })
+        g.addView(lc, W.lin(W.M, W.WR))
+        g.addView(W.divider(a), W.lin(W.M, 1))
+        g.addView(W.row(a, "Снег и сугроб", "Снежинки, снег на верхних кромках панелей и сугроб внизу", W.Toggle(a, true) {}, 76, 42), W.lin(W.M, W.WR))
+        g.addView(W.divider(a), W.lin(W.M, 1))
+        g.addView(W.row(a, "Еловые ветки", "Веточки по углам — никогда не закрывают текст и кнопки", W.Toggle(a, true) {}, 76, 42), W.lin(W.M, W.WR))
         g.addView(W.divider(a), W.lin(W.M, 1))
         g.addView(W.row(a, "Сейчас", "Включится сам 20 декабря, выключится 14 января", null), W.lin(W.M, W.WR))
         col.addView(cap, 1, W.lin(W.M, W.WR).apply { topMargin = 4; bottomMargin = 8; leftMargin = 6 })
