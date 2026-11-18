@@ -683,7 +683,7 @@ class Overlays(private val ck: Cockpit) {
     private fun secSysNav(p: LinearLayout) {
         val ma = a as? MainActivity
         add(p, "Системная панель сверху",
-            W.row(a, "Скрывать системную панель в лаунчере", "Только пока открыт Car Launcher: экран на всю высоту. Показать панель на время — провести от верхнего края вниз. Настройки Android не меняются, в других приложениях панель остаётся",
+            W.row(a, "Скрывать системную панель в лаунчере", "Только в Car Launcher. Показать на время — провести от верхнего края вниз. В других приложениях панель остаётся",
                 W.Toggle(a, K.hideBar) { K.hideBar = it; ma?.applyBars(); ck.root.requestApplyInsets(); ck.root.postDelayed({ refreshSettings() }, 600) }, 76, 42),
             W.row(a, "Сейчас", ma?.screenInfo() ?: "", null))
         if (!K.hideBar) add(p, null, segRow("Место под панель сверху", "«Авто» — как сообщает магнитола. Если интерфейс заходит под панель или над ним пустая полоса — выберите вручную",
@@ -694,7 +694,7 @@ class Overlays(private val ck: Cockpit) {
         val on = NavAccess.enabled(a)
         add(p, "Поверх других приложений",
             W.row(a, "Служба «Car Launcher — кнопки навигации»", if (on) "Включена. Нужна для □ «Недавние», «Назад» в других приложениях и плавающих кнопок" else "Выключена. Нажмите, чтобы включить (Спец. возможности Android)", null) { navHelp() },
-            W.row(a, "Плавающие кнопки ◁ ○ □", "Полупрозрачные кнопки поверх навигатора, музыки и других приложений. Перетаскиваются за полоску слева, место запоминается. В лаунчере не показываются",
+            W.row(a, "Плавающие кнопки ◁ ○ □", "Поверх навигатора, музыки и др. Перетаскиваются за полоску слева, место запоминается",
                 W.Toggle(a, K.floatOn) { K.floatOn = it; if (it && !NavAccess.enabled(a)) navHelp(); NavAccess.refresh() }, 76, 42),
             segRow("Размер плавающих кнопок", null, listOf("0" to "Маленькие", "1" to "Средние", "2" to "Крупные"), K.floatSize.toString()) { K.floatSize = it.toInt(); NavAccess.refresh() },
             W.row(a, "Приглушать через 4 секунды", "Кнопки становятся почти прозрачными, касание — снова яркие", W.Toggle(a, K.floatDim) { K.floatDim = it; NavAccess.refresh() }, 76, 42),
@@ -702,11 +702,11 @@ class Overlays(private val ck: Cockpit) {
     }
     /** v1.7.5: how to switch on the accessibility service (RU, step by step) */
     fun navHelp() {
-        val s = popup("navhelp", 300, 110, 680, 500)
+        val s = popup("navhelp", 300, 60, 680, 600)
         s.put(W.header(a, "sys_home", "Кнопки навигации", null) { close("navhelp") }, 28, 14, 624, 56)
-        s.put(t(19f, 0xE6FFFFFF.toInt(), lines = 20).apply { text = NavKeys.HOW }, 28, 80, 624, 320)
-        s.put(W.button(a, "Открыть настройки", 300, 64, primary = true) { NavKeys.openSettings(a) }, 28, 414, 300, 64)
-        s.put(W.button(a, "Позже", 280, 64) { close("navhelp") }, 352, 414, 300, 64)
+        s.put(t(19f, 0xE6FFFFFF.toInt(), lines = 20).apply { text = NavKeys.HOW }, 28, 80, 624, 420)
+        s.put(W.button(a, "Открыть настройки", 300, 64, primary = true) { NavKeys.openSettings(a) }, 28, 514, 300, 64)
+        s.put(W.button(a, "Позже", 280, 64) { close("navhelp") }, 352, 514, 300, 64)
     }
 
     private fun secAbout(p: LinearLayout) {
