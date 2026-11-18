@@ -98,6 +98,8 @@ class V172Test {
         AppRepo.exec.execute { throw IllegalStateException("bg") }
         AppRepo.exec.execute { done.countDown() }
         assertTrue("executor survives an exception", done.await(3, java.util.concurrent.TimeUnit.SECONDS))
+        // the failing task logs on its own thread (two workers) → wait for its entry before clearing
+        repeat(50) { if (!CrashLog.text(ctx).contains("IllegalStateException: bg")) Thread.sleep(50) }
         CrashLog.clear(ctx); assertEquals("", CrashLog.text(ctx))
     }
 
