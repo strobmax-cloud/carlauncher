@@ -169,7 +169,7 @@ class NavCardView(c: Context, accent: Int, light: Boolean = false, compact: Bool
         col.addView(disc, Ui.lin(Ui.u(isz + 40), Ui.u(isz + 40)))
         title = Ui.text(c, if (compact) 26 else 34, if (light) LightPass.INK else Color.WHITE, Ui.BOLD).apply { text = "Куда едем?"; gravity = android.view.Gravity.CENTER }
         col.addView(title, Ui.lin(Ui.WRAP, Ui.WRAP).apply { topMargin = Ui.u(if (compact) 12 else 20) })
-        val music = when (Prefs.navMode) { "split" -> " · рядом с музыкой"; "mini" -> " · с мини-плеером"; else -> "" }
+        val music = when (Prefs.navMode) { "split" -> " · рядом с музыкой"; else -> "" }
         sub = Ui.text(c, if (compact) 15 else 18, if (light) LightPass.INK2 else Ui.TEXT2, Ui.MEDIUM, 2).apply {
             text = (if (pkg != null) "Открыть " + Nav.name(c, pkg) + music else "Нажмите, чтобы выбрать навигатор"); gravity = android.view.Gravity.CENTER }
         col.addView(sub, Ui.lin(Ui.WRAP, Ui.WRAP).apply { topMargin = Ui.u(6) })
