@@ -271,7 +271,7 @@ class Overlays(private val ck: Cockpit) {
     fun folderPicker(path: String?) {
         val s = popup("folders", 90, 30, 1100, 660)
         val dir = path?.let { java.io.File(it) }
-        s.put(W.header(a, "folder", if (dir == null) "Папка с видео — где искать" else dir.name.ifEmpty { dir.path }, dir?.path) { close("folders") }, 28, 14, 1044, 64)
+        s.put(W.header(a, "folder", if (dir == null) "Папка с видео — где искать" else dir.name.ifEmpty { dir.path }, null) { close("folders") }, 28, 14, 1044, 64)
         val body = W.vbox(a)
         if (!a.hasFiles()) {
             val g = group(); g.rows(W.row(a, "Нет доступа к файлам", "Без разрешения флешка выглядит пустой", W.button(a, "Разрешить", 170, 48, primary = true) { a.askFiles() }, W.WR, 48))
@@ -286,6 +286,7 @@ class Overlays(private val ck: Cockpit) {
                 g.rows(W.row(a, name, root.path + if (n > 0) " · найдено видео: $n" else "", Ck.icon(a, "folder", 0xB3FFFFFF.toInt()), 26, 26) { folderPicker(root.path) })
             }
         } else {
+            g.rows(W.row(a, "Путь", dir.path, null))
             val up = dir.parentFile
             g.rows(W.row(a, "⬆ Назад", if (up != null && Videos.roots(a).none { it.second.path == dir.path }) up.path else "к списку накопителей", null) {
                 folderPicker(if (up != null && Videos.roots(a).none { it.second.path == dir.path }) up.path else null)

@@ -411,9 +411,9 @@ class CoverGlow(c: Context) : View(c) {
         val q = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
         c.drawBitmap(small, null, RectF(0f, 0f, n.toFloat(), n.toFloat()), q)
         // stronger colours, faded to a soft round edge
-        q.colorFilter = ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(1.6f) })
+        q.colorFilter = ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(1.7f); postConcat(ColorMatrix().apply { setScale(1.6f, 1.6f, 1.6f, 1f) }) })
         c.drawBitmap(out.copy(Bitmap.Config.ARGB_8888, false), 0f, 0f, q); q.colorFilter = null
-        q.shader = RadialGradient(n / 2f, n / 2f, n / 2f, intArrayOf(Color.BLACK, Ck.alpha(Color.BLACK, .6f), 0), floatArrayOf(0f, .5f, 1f), Shader.TileMode.CLAMP)
+        q.shader = RadialGradient(n / 2f, n / 2f, n / 2f, intArrayOf(Color.BLACK, Color.BLACK, Ck.alpha(Color.BLACK, .55f), 0), floatArrayOf(0f, .5f, .75f, 1f), Shader.TileMode.CLAMP)
         q.xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.DST_IN)
         c.drawRect(0f, 0f, n.toFloat(), n.toFloat(), q)
         small.recycle()

@@ -784,7 +784,7 @@ class Cockpit(val a: MainActivity) {
             tilesD()
         } else {
             val cv = ImageView(a).apply { scaleType = ImageView.ScaleType.CENTER_CROP; clipToOutline = true; outlineProvider = RoundOutline(40f); elevation = 18f }
-            val gl = CoverGlow(a); glows.add(gl); page.put(gl, 100 - 150, 104 - 130, 366 + 300, 366 + 260)
+            val gl = CoverGlow(a); glows.add(gl); page.put(gl, 100 - 190, 104 - 170, 366 + 380, 366 + 340)
             npCover = cv; page.put(cv, 100, 104, 366, 366)
             Ck.pressable(cv, { overlays.sourceMenu() }) { openPlayer() }
             val ttl = t(if (bigk) 48f else 44f, Color.WHITE, true, 2); npTitle = ttl; page.put(ttl, 540, 104, 670, if (bigk) 112 else 104)
