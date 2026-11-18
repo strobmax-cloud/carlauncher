@@ -93,7 +93,8 @@ class V173Test {
         a.ck.overlays.folderPicker(stick.path); settle(); relayout(root); settle()
         assertTrue(texts(root).containsAll(listOf("Видео", "Музыка", "⬆ Назад")))
         a.ck.overlays.folderPicker(d.path); settle(); relayout(root); settle()
-        assertTrue(texts(root).contains("Видео в этой папке: 1"))
+        repeat(10) { settle(1) }; relayout(root); settle()
+        assertTrue("preview tile: ${texts(root)}", all(root).any { it.contentDescription == "Лес" })
         shot(root, "folders-pick")
         all(root).filterIsInstance<TextView>().first { it.text == "Выбрать эту папку" }.performClick()
         repeat(20) { settle(1) }; relayout(root); settle()
@@ -146,13 +147,13 @@ class V173Test {
         assertTrue(BgCycle.step(1, false, false).contains(Ck.THEMES[1].name)); assertEquals(Ck.THEMES[1].id, K.theme)
         K.bg = "cover"; BgCycle.step(1, false, false); assertEquals("scene", K.bg)
         K.bg = "theme"; BgCycle.step(1, true, false); assertEquals("C theme → next kind", "cover", K.bg)
-        // Природа on Музыка: arrows around the photo name
-        K.bg = "scene"; K.scene = "auto"
+        // «Фон» tab (v1.7.4, was «Природа»): arrows too
+        K.bg = "scene"; K.scene = "auto"; K.fonKind = "scene"
         val (a, root) = open("D", "music")
-        all(root).first { it.contentDescription == "Природа" && it.isShown }.performClick(); settle(); relayout(root); settle()
+        a.ck.show(2); settle(); relayout(root); settle(); a.ck.fonTouch(); settle()
         all(root).first { it.contentDescription == "Следующий фон" && it.isShown }.performClick(); settle()
         assertEquals(Scenes.ALL[0].id, K.scene)
-        shot(root, "arrows-nature")
+        shot(root, "arrows-fon")
     }
 
     // ---------------- 4. «Телефон» ----------------

@@ -9,7 +9,7 @@ object Tiles {
     const val INTERNAL_MEDIA = "internal:media"
     val ALL = listOf(
         TileDef("Навигатор", R.drawable.ic_nav, listOf("ru.yandex.yandexnavi", "ru.dublgis.dgismobile", "com.google.android.apps.maps", "ru.yandex.yandexmaps")),
-        TileDef("Радио", R.drawable.ic_radio, listOf("com.syu.radio", "com.syu.ms.radio", "com.android.fmradio"), listOf("радио", "radio", "fm")),
+        TileDef("Радио", R.drawable.ic_radio, listOf("com.syu.carradio", "com.syu.radio", "com.syu.ms.radio", "com.android.fmradio"), listOf("радио", "radio", "fm")),
         TileDef("Телефон", R.drawable.ic_phone, listOf("com.syu.bt", "com.syu.btphone", "com.android.bluetooth", "com.android.dialer"), listOf("bluetooth", "телефон")),
         TileDef("Камера", R.drawable.ic_videocam, listOf("com.syu.dvr", "com.syu.camera360", "com.syu.camera", "com.android.camera2")),
         TileDef("Я.Музыка", R.drawable.ic_music, listOf("ru.yandex.music", "com.syu.music", "com.android.music"), listOf("яндекс музыка", "музыка", "music")),

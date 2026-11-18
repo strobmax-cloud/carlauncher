@@ -50,6 +50,8 @@ object K {
     /** absolute path of the chosen video background */
     /** v1.7.3: a video folder chosen by hand (built-in folder browser or Android's folder picker) */
     var videoDir: String get() = s("videoDir", ""); set(v) = ps("videoDir", v)
+    /** v1.7.4: what the «Фон» screen shows: scene (photo) | video */
+    var fonKind: String get() = s("fonKind", "scene"); set(v) = ps("fonKind", v)
     var video: String get() = s("video", ""); set(v) = ps("video", v)
     var tiles: String get() = s("tiles", ""); set(v) = ps("tiles", v)
     /** v1.7.2: «Все приложения» was added once to an existing custom tile list (removing it later is respected) */
@@ -91,6 +93,8 @@ object K {
     var cleanedApks: Int get() = i("cleanedApks", 0); set(v) = pi("cleanedApks", v)
 
     // v1.7.2
+    /** v1.7.4: «Радио» button / tile: ask | fm | net (internet radio = RadioDroid) */
+    var radioChoice: String get() = s("radioChoice", "ask"); set(v) = ps("radioChoice", v)
     var radioPresets: String get() = s("radioPresets", ""); set(v) = ps("radioPresets", v)
     /** rain / snow: true = by the weather, false = [fxKind] always */
     var fxAuto: Boolean get() = b("fxAuto", true); set(v) = pb("fxAuto", v)

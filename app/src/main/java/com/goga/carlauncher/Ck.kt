@@ -65,6 +65,8 @@ object Ck {
 
     /** accent: C = cool cyan/orange like the mockup (cover colour when «Обложка»), D = theme accent (or cover colour) */
     var coverColor: Int = 0
+    /** v1.7.4: the current track cover (full-screen «Обложка» background) */
+    @Volatile var coverArt: android.graphics.Bitmap? = null
     fun accent(): Int {
         if (K.bg == "cover" && coverColor != 0) return lift(coverColor)
         return if (isC) 0xFFFF6A2B.toInt() else theme().accent

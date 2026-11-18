@@ -201,7 +201,12 @@ object MediaHub {
 
     // ---- radio of the head unit (FYT / TEYES «Радио» usually publishes NO media session) ----
     val RADIO_PKGS = listOf("com.syu.carradio", "com.syu.radio", "com.syu.ms.radio", "com.microntek.radio", "com.android.fmradio", "com.navimods.radio", "com.spd.radio")
-    fun isRadio(c: Context?, pkg: String?): Boolean = pkg != null && (pkg in RADIO_PKGS ||
+    /** v1.7.4: internet radio apps are ordinary players (own session, own name) — never «Радио магнитолы» */
+    const val YANDEX = "ru.yandex.music"
+    const val RADIODROID = "net.programmierecke.radiodroid2"
+    val NET_RADIO = listOf(RADIODROID, "com.radio.fmradio", "com.maxxt.pcradio", "ru.radiorecord.app", "com.audials", "tunein.player", "radiotime.player", "com.streema.simpleradio")
+    fun isNetRadio(pkg: String?) = pkg != null && NET_RADIO.any { pkg.startsWith(it) }
+    fun isRadio(c: Context?, pkg: String?): Boolean = pkg != null && !isNetRadio(pkg) && (pkg in RADIO_PKGS ||
         (c != null && try { Tiles.resolve(c, 1).pkg == pkg } catch (_: Throwable) { false }))
     private fun hasSession(pkg: String) = sessions.any { it.packageName == pkg }
 

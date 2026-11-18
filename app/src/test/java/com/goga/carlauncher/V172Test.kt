@@ -137,7 +137,7 @@ class V172Test {
         for (m in listOf("theme", "cover", "scene", "video")) {
             K.bg = m; a.ck.overlays.bgPanel(); settle(); relayout(root); settle()
             val t = texts(root)
-            assertTrue("$m tabs: $t", t.containsAll(listOf("Тема", "Обложка", "Природа", "Видео")))
+            assertTrue("$m tabs: $t", t.containsAll(listOf("Тема", "Обложка", "Фото", "Видео")))
             assertTrue("$m current mode line", t.any { it.startsWith("Сейчас: ") })
             assertTrue("$m brightness for every mode", t.contains("Яркость фона"))
             assertTrue("$m rain/snow", t.contains("Показывать дождь и снег"))

@@ -93,12 +93,14 @@ class CockpitTest {
         val (a, root) = open("D")
         all(root).first { it.contentDescription == "Музыка" }.performClick(); settle(); relayout(root); settle()
         assertEquals(1, a.ck.screen)
-        assertTrue(texts(root).contains("Природа"))
-        all(root).first { it.contentDescription == "Природа" }.performClick(); settle(); relayout(root); settle()
-        assertTrue(a.ck.nature)
-        shot(root, "D-nature")
+        // v1.7.4: «Природа» became the third tab «Фон»
+        assertFalse(texts(root).contains("Природа"))
+        assertTrue("pill + tab «Фон»", all(root).count { it.contentDescription == "Фон" && it.isShown } >= 2)
+        a.ck.show(2); settle(); relayout(root); settle()
+        assertTrue(a.ck.fon)
+        shot(root, "D-fon")
         a.onBackPressed(); settle()
-        assertFalse(a.ck.nature)
+        assertFalse(a.ck.fon)
         a.ck.home(); settle()
         assertEquals(0, a.ck.screen)
     }
@@ -147,7 +149,7 @@ class CockpitTest {
     @Test fun backgroundPanelGalleryAndVideo() {
         val (a, root) = open("C", music = false)
         a.ck.overlays.bgPanel(); settle(); relayout(root); settle()
-        assertTrue(texts(root).containsAll(listOf("Тема", "Обложка", "Природа", "Видео")))
+        assertTrue(texts(root).containsAll(listOf("Тема", "Обложка", "Фото", "Видео")))
         shot(root, "bg-panel")
         a.ck.overlays.gallery(); settle(6); relayout(root); settle()
         shot(root, "gallery")

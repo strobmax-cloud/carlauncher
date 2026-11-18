@@ -278,6 +278,24 @@ object Videos {
         val here = all.filter { isVideo(it) }
         return if (!sub) here else here + all.filter { it.isDirectory && !it.name.startsWith(".") }.flatMap { d -> videosIn(d, false) }
     }
+    /** v1.7.4: folders that are never shown in the picker (system / hidden / not media) */
+    private val SYS = setOf("android", "lost.dir", "system volume information", "\$recycle.bin", "recycler", "obb", "data", "found.000", "msdownld.tmp", "thumbnails", ".thumbnails", "fseventsd", "spotlight-v100", "trashes", "temp", "tmp", "cache", "logs", "log")
+    fun hiddenName(n: String) = n.startsWith(".") || n.startsWith("$") || n.lowercase() in SYS
+    private val hasMemo = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+    fun clearMemo() = hasMemo.clear()
+    /** a folder with at least one video inside (≤ 4 levels down), system folders skipped */
+    fun hasVideos(dir: File, depth: Int = 4): Boolean = hasMemo.getOrPut(dir.path + "|" + depth) {
+        val all = try { dir.listFiles() } catch (_: Throwable) { null } ?: return@getOrPut false
+        all.any { isVideo(it) && !hiddenName(it.name) } || (depth > 0 && all.any { it.isDirectory && !hiddenName(it.name) && hasVideos(it, depth - 1) })
+    }
+    /** sub-folders worth showing: only those with videos somewhere inside */
+    fun videoFolders(dir: File): List<File> {
+        val col = java.text.Collator.getInstance(Locale("ru"))
+        return (try { dir.listFiles() } catch (_: Throwable) { null } ?: return emptyList())
+            .filter { it.isDirectory && !hiddenName(it.name) && hasVideos(it, 3) }.sortedWith { a, b -> col.compare(a.name, b.name) }
+    }
+    fun videoFiles(dir: File): List<File> = (try { dir.listFiles() } catch (_: Throwable) { null } ?: emptyArray()).filter { isVideo(it) && !hiddenName(it.name) }.sortedBy { it.name.lowercase() }
+
     fun scan(c: Context): List<Clip> {
         val res = ArrayList<Clip>()
         // v1.7.3: the folder chosen by hand first, then the usual places on every mounted stick
@@ -305,15 +323,15 @@ object Videos {
 object BgCycle {
     private fun <T> next(l: List<T>, cur: Int, dir: Int) = l[Math.floorMod(cur + dir, l.size)]
     fun kinds(): List<String> = listOf("theme", "cover", "scene") + (if (Videos.list.isNotEmpty()) listOf("video") else emptyList())
-    fun kindName(k: String) = when (k) { "cover" -> "Обложка"; "scene" -> "Природа"; "video" -> "Видео"; else -> "Тема" }
+    fun kindName(k: String) = when (k) { "cover" -> "Обложка"; "scene" -> "Фото"; "video" -> "Видео"; else -> "Тема" }
     /** returns what is shown now, for the toast */
-    fun step(dir: Int, isC: Boolean, nature: Boolean): String {
-        val m = if (nature) "scene" else K.bg
+    fun step(dir: Int, isC: Boolean, fon: Boolean): String {
+        val m = if (fon) (if (K.fonKind == "video" && Videos.list.isNotEmpty()) "video" else "scene") else K.bg
         when {
             m == "scene" -> {
                 val ids = listOf("auto") + Scenes.ALL.map { it.id }
                 val id = next(ids, ids.indexOf(K.scene).coerceAtLeast(0), dir); K.scene = id
-                return "Природа · " + if (id == "auto") "авто по погоде" else Scenes.current().name
+                return "Фото · " + if (id == "auto") "авто по погоде" else Scenes.current().name
             }
             m == "theme" && !isC -> {
                 val t = next(Ck.THEMES, Ck.THEMES.indexOfFirst { it.id == K.theme }.coerceAtLeast(0), dir); K.theme = t.id
@@ -325,7 +343,44 @@ object BgCycle {
                 return "Видео · " + c.name
             }
         }
+        if (fon) {   // «Фон»: only photo / video
+            K.fonKind = if (m == "video") "scene" else if (Videos.list.isNotEmpty()) "video" else "scene"
+            return kindName(K.fonKind) + if (K.fonKind == "video") Videos.chosen()?.let { " · " + Videos.nice(it.name).first } ?: "" else " · " + Scenes.current().name
+        }
         val ks = kinds(); val k = next(ks, ks.indexOf(m).let { if (it < 0) 0 else it }, dir); K.bg = k
         return "Фон: " + kindName(k) + when (k) { "scene" -> " · " + Scenes.current().name; "video" -> Videos.chosen()?.let { " · " + Videos.nice(it.name).first } ?: ""; "theme" -> if (isC) "" else " · " + Ck.theme().name; else -> "" }
+    }
+}
+
+
+/** v1.7.4: video previews — one frame, small, cached, made off the main thread */
+object VThumb {
+    private val cache = object : android.util.LruCache<String, android.graphics.Bitmap>(6 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: android.graphics.Bitmap) = value.byteCount
+    }
+    private val busy = java.util.Collections.synchronizedSet(HashSet<String>())
+    fun cached(path: String): android.graphics.Bitmap? = cache.get(path)
+    fun make(path: String): android.graphics.Bitmap? {
+        cache.get(path)?.let { return it }
+        @Suppress("DEPRECATION")
+        var b: android.graphics.Bitmap? = try { android.media.ThumbnailUtils.createVideoThumbnail(path, android.provider.MediaStore.Images.Thumbnails.MINI_KIND) } catch (_: Throwable) { null }
+        if (b == null) {
+            val r = android.media.MediaMetadataRetriever()
+            b = try { r.setDataSource(path); r.getFrameAtTime(1_000_000L, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC) } catch (_: Throwable) { null } finally { try { r.release() } catch (_: Throwable) {} }
+        }
+        b ?: return null
+        val sc = 320f / b.width
+        val small = if (sc < 1f) android.graphics.Bitmap.createScaledBitmap(b, 320, Math.max(1, (b.height * sc).toInt()), true).also { if (it !== b) b.recycle() } else b
+        cache.put(path, small)
+        return small
+    }
+    fun bind(path: String, iv: android.widget.ImageView) {
+        iv.tag = path
+        cache.get(path)?.let { iv.setImageBitmap(it); return }
+        if (!busy.add(path + "#" + System.identityHashCode(iv))) return
+        AppRepo.exec.execute {
+            val b = make(path)
+            AppRepo.main.post { busy.remove(path + "#" + System.identityHashCode(iv)); if (iv.tag == path && b != null) iv.setImageBitmap(b) }
+        }
     }
 }

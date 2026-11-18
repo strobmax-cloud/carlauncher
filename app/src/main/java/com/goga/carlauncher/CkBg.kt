@@ -57,7 +57,8 @@ object Svg {
  */
 class BgView(c: Context) : View(c) {
     var music = false
-    var nature = false
+    /** v1.7.4: the «Фон» screen (its own choice: photo or video) */
+    var fon = false
     private var base: Bitmap? = null
     private val waves = arrayOfNulls<Bitmap>(3)
     private var key = ""
@@ -71,13 +72,23 @@ class BgView(c: Context) : View(c) {
     init { setWillNotDraw(false) }
 
     /** what the background shows now: theme | cover | scene | video (video → photo under it as fallback) */
-    fun mode(): String { if (nature) return "scene"; val b = K.bg; return if (b == "video" && Videos.chosen() == null) "scene" else b }
+    fun mode(): String {
+        val b = if (fon) K.fonKind else K.bg
+        return when {
+            b == "video" && Videos.chosen() == null -> "scene"
+            fon && b != "video" -> "scene"
+            // «Обложка» without a cover (nothing plays) → the colour gradient of the theme
+            else -> b
+        }
+    }
 
     private fun wantKey(): String {
         val md = mode()
         val pal = if (md == "cover") "cover:" + Ck.coverColor else K.theme
         return when {
             md == "scene" || md == "video" -> "scene:" + Scenes.current().id + ":" + K.blur + ":" + K.bright
+            // v1.7.4: the cover itself, full screen
+            md == "cover" && Ck.coverArt != null -> "art:" + System.identityHashCode(Ck.coverArt) + ":" + K.blur + ":" + K.bright + ":" + K.glow
             Ck.isC -> "C:" + (if (md == "cover") Ck.coverColor.toString() + ":" + K.glow else "0") + ":" + music
             else -> "D:$pal:$music" + (if (md == "cover") ":" + K.glow else "")
         }
@@ -89,9 +100,9 @@ class BgView(c: Context) : View(c) {
         building = k
         val w = Ck.W; val h = Ck.H
         val ctx = context.applicationContext
-        val isC = Ck.isC; val md = mode(); val cover = Ck.coverColor; val mus = music
+        val isC = Ck.isC; val md = mode(); val cover = Ck.coverColor; val mus = music; val art = Ck.coverArt
         val job = Runnable {
-            val res = try { render(ctx, k, isC, md, cover, mus, w, h) } catch (_: Throwable) { null }
+            val res = try { if (md == "cover" && art != null) coverBitmap(art, K.blur, K.bright, w, h) to emptyList() else render(ctx, k, isC, md, cover, mus, w, h) } catch (_: Throwable) { null }
             post {
                 if (building != k) return@post
                 building = ""
@@ -165,6 +176,28 @@ class BgView(c: Context) : View(c) {
             }
             val th = if (md == "cover" && cover != 0) coverTheme(cover) else Ck.theme()
             return themeD(th, !music, w, h)
+        }
+
+        /** v1.7.4 «Обложка»: the track cover over the WHOLE screen (centre-crop to 1280×720), blurred if «Размытие» is on, darkened for the text */
+        fun coverBitmap(src0: Bitmap, blur: Boolean, bright: Int, w: Int, h: Int): Bitmap {
+            val sc = maxOf(w / src0.width.toFloat(), h / src0.height.toFloat())
+            val cw = w / sc; val chh = h / sc
+            val sx = (src0.width - cw) / 2f; val sy = (src0.height - chh) / 2f
+            val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888); val cv = Canvas(out)
+            val p = Paint(Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
+            val k = bright / 100f * 0.82f
+            p.colorFilter = ColorMatrixColorFilter(ColorMatrix().apply { setScale(k, k, k, 1f) })
+            val srcR = Rect(sx.toInt(), sy.toInt(), (sx + cw).toInt(), (sy + chh).toInt())
+            if (blur) {
+                val small = Bitmap.createBitmap(w / 12, h / 12, Bitmap.Config.ARGB_8888)
+                Canvas(small).drawBitmap(src0, srcR, Rect(0, 0, small.width, small.height), Paint(Paint.FILTER_BITMAP_FLAG))
+                val bl = boxBlur(boxBlur(small, 2), 2)
+                cv.drawBitmap(bl, null, Rect(0, 0, w, h), p); small.recycle(); bl.recycle()
+            } else cv.drawBitmap(src0, srcR, Rect(0, 0, w, h), p)
+            val g = Paint(Paint.DITHER_FLAG)
+            g.shader = LinearGradient(0f, 0f, 0f, h.toFloat(), intArrayOf(0x80000000.toInt(), 0x26000000, 0x33000000, 0x99000000.toInt()), floatArrayOf(0f, 0.25f, 0.6f, 1f), Shader.TileMode.CLAMP)
+            cv.drawRect(0f, 0f, w.toFloat(), h.toFloat(), g)
+            return out
         }
 
         fun sceneBitmap(ctx: Context, s: Scenes.Scene, blur: Boolean, bright: Int, w: Int, h: Int): Bitmap {
