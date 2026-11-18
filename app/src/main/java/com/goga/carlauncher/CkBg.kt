@@ -78,8 +78,8 @@ class BgView(c: Context) : View(c) {
         val pal = if (md == "cover") "cover:" + Ck.coverColor else K.theme
         return when {
             md == "scene" || md == "video" -> "scene:" + Scenes.current().id + ":" + K.blur + ":" + K.bright
-            Ck.isC -> "C:" + (if (md == "cover") Ck.coverColor else 0) + ":" + music
-            else -> "D:$pal:$music"
+            Ck.isC -> "C:" + (if (md == "cover") Ck.coverColor.toString() + ":" + K.glow else "0") + ":" + music
+            else -> "D:$pal:$music" + (if (md == "cover") ":" + K.glow else "")
         }
     }
 
@@ -143,7 +143,10 @@ class BgView(c: Context) : View(c) {
         /** palette from the cover colour (same structure as the D themes) */
         fun coverTheme(c: Int): Ck.Theme {
             val hsv = FloatArray(3); Color.colorToHSV(c, hsv)
-            fun hv(s: Float, v: Float) = Color.HSVToColor(floatArrayOf(hsv[0], (hsv[1] * s).coerceIn(0f, 1f), v))
+            // v1.7.3: «Сила подсветки» — more colour (saturation) and brighter light from the cover
+            val g = K.glow / 100f; val sm = 0.6f + 0.9f * g; val vm = 0.8f + 0.5f * g
+            if (hsv[1] < 0.35f) hsv[1] = 0.35f + 0.3f * g
+            fun hv(s: Float, v: Float) = Color.HSVToColor(floatArrayOf(hsv[0], (hsv[1] * s * sm).coerceIn(0f, 1f), (v * vm).coerceIn(0f, 1f)))
             return Ck.Theme("cover", "Обложка", hv(0.7f, 0.13f), hv(0.75f, 0.24f), hv(0.6f, 0.07f), hv(0.7f, 0.5f), hv(0.8f, 0.72f), hv(0.6f, 0.86f), hv(0.45f, 1f), Ck.lift(c), hv(0.5f, 1f))
         }
 
@@ -154,7 +157,8 @@ class BgView(c: Context) : View(c) {
                 cv.drawColor(Color.BLACK)
                 if (md == "cover" && cover != 0) {
                     val p = Paint(Paint.ANTI_ALIAS_FLAG or Paint.DITHER_FLAG)
-                    p.shader = RadialGradient(640f, 300f, 620f, intArrayOf(Ck.alpha(cover, 0.55f), Ck.alpha(cover, 0.18f), 0), floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP)
+                    val g = K.glow / 100f
+                    p.shader = RadialGradient(640f, 300f, 620f + 160f * g, intArrayOf(Ck.alpha(Ck.lift(cover), 0.2f + 0.7f * g), Ck.alpha(cover, 0.08f + 0.32f * g), 0), floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP)
                     cv.drawRect(0f, 0f, w.toFloat(), h.toFloat(), p)
                 }
                 return b to emptyList()
@@ -387,4 +391,41 @@ class VideoBg(c: Context) : TextureView(c), TextureView.SurfaceTextureListener {
     override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) { fit() }
     override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean { release(); surface?.release(); surface = null; return true }
     override fun onSurfaceTextureUpdated(st: SurfaceTexture) {}
+}
+
+
+/** v1.7.3: soft coloured light from the track cover behind it (strength = K.glow), on any background */
+class CoverGlow(c: Context) : View(c) {
+    private var src: Bitmap? = null
+    private var halo: Bitmap? = null
+    var playing = true; set(v) { if (field != v) { field = v; invalidate() } }
+    private val p = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    fun set(b: Bitmap?) {
+        if (b === src) return
+        src = b; halo = b?.let { try { make(it) } catch (_: Throwable) { null } }; invalidate()
+    }
+    private fun make(b: Bitmap): Bitmap {
+        val n = 48
+        val small = Bitmap.createScaledBitmap(b, 8, 8, true)
+        val out = Bitmap.createBitmap(n, n, Bitmap.Config.ARGB_8888); val c = Canvas(out)
+        val q = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+        c.drawBitmap(small, null, RectF(0f, 0f, n.toFloat(), n.toFloat()), q)
+        // stronger colours, faded to a soft round edge
+        q.colorFilter = ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(1.7f); postConcat(ColorMatrix().apply { setScale(1.6f, 1.6f, 1.6f, 1f) }) })
+        c.drawBitmap(out.copy(Bitmap.Config.ARGB_8888, false), 0f, 0f, q); q.colorFilter = null
+        q.shader = RadialGradient(n / 2f, n / 2f, n / 2f, intArrayOf(Color.BLACK, Color.BLACK, Ck.alpha(Color.BLACK, .55f), 0), floatArrayOf(0f, .5f, .75f, 1f), Shader.TileMode.CLAMP)
+        q.xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.DST_IN)
+        c.drawRect(0f, 0f, n.toFloat(), n.toFloat(), q)
+        small.recycle()
+        return out
+    }
+    fun strength(): Float = K.glow / 100f * (if (playing) 1f else .45f)
+    override fun onDraw(cv: Canvas) {
+        try {
+            val h = halo ?: return
+            val s = strength(); if (s <= 0.01f) return
+            p.alpha = (255 * s.coerceIn(0f, 1f)).toInt()
+            cv.drawBitmap(h, null, RectF(0f, 0f, width.toFloat(), height.toFloat()), p)
+        } catch (t: Throwable) { CrashLog.soft(t) }
+    }
 }

@@ -59,9 +59,35 @@ class MainActivity : Activity() {
     }
 
     fun requestPerms() {
-        val need = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.READ_EXTERNAL_STORAGE)
+        // v1.7.3: + location «all the time» (Android 10: one dialog) — the trip is counted while the navigator is on top
+        val need = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_BACKGROUND_LOCATION, Manifest.permission.READ_EXTERNAL_STORAGE)
             .filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
         if (need.isNotEmpty()) requestPermissions(need.toTypedArray(), 1)
+    }
+    // ---- v1.7.3: files / video folder ----
+    fun hasFiles() = checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+    /** ask for file access; when Android will not ask again → the app page («Разрешения») */
+    fun askFiles() {
+        if (hasFiles()) return
+        if (Prefs.askedPerms && !shouldShowRequestPermissionRationale(Manifest.permission.READ_EXTERNAL_STORAGE) && filesAsked) {
+            ck.showToast("Разрешения → «Хранилище» → Разрешить")
+            AppRepo.startSafe(this, Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:$packageName")))
+        } else { filesAsked = true; requestPermissions(arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), 4) }
+    }
+    private var filesAsked = false
+    fun pickVideoTree() {
+        try { startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION), VideoTree.REQ) }
+        catch (_: Throwable) { ck.showToast("На магнитоле нет выбора папок Android — используйте «Выбрать папку…»"); ck.overlays.folderPicker(null) }
+    }
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != VideoTree.REQ || resultCode != RESULT_OK) return
+        val uri = data?.data ?: return
+        try { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Throwable) {}
+        val path = VideoTree.toPath(uri)
+        if (path == null || java.io.File(path).listFiles() == null) { ck.showToast("Эту папку нельзя открыть как файлы — выберите её в «Выбрать папку…»"); ck.overlays.folderPicker(null); return }
+        ck.overlays.useVideoDir(path)
     }
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         Trip.start(this); Videos.scanAsync(this) { ck.onStorage() }; Eq.open(this)
@@ -87,5 +113,19 @@ class MainActivity : Activity() {
         try { unregisterReceiver(mediaReceiver) } catch (_: Exception) {}
         ck.destroy()
         super.onDestroy()
+    }
+}
+
+
+/** v1.7.3: Android folder picker → a real path (legacy storage on Android 10: the file is then read directly) */
+object VideoTree {
+    const val REQ = 73
+    /** content://…/tree/primary:Movies → /storage/emulated/0/Movies; …/tree/1A2B-3C4D:CarLauncher → /storage/1A2B-3C4D/CarLauncher */
+    fun toPath(uri: android.net.Uri): String? = try { idToPath(android.provider.DocumentsContract.getTreeDocumentId(uri)) } catch (_: Throwable) { null }
+    fun idToPath(id: String): String? {
+        val vol = id.substringBefore(':'); val rel = id.substringAfter(':', "")
+        val bases = if (vol.equals("primary", true)) listOf("/storage/emulated/0") else listOf("/storage/$vol", "/mnt/media_rw/$vol", "/mnt/usb/$vol")
+        val cands = bases.map { if (rel.isEmpty()) it else "$it/$rel" }
+        return cands.firstOrNull { java.io.File(it).exists() } ?: cands.first()
     }
 }

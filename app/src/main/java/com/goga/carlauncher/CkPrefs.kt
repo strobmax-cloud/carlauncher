@@ -41,11 +41,15 @@ object K {
     var wxKind: String get() = s("wxKind", "auto"); set(v) = ps("wxKind", v)       // auto / clear / cloudy / rain / snow
     var particles: Boolean get() = b("particles", true); set(v) = pb("particles", v)
     var blur: Boolean get() = b("blur", false); set(v) = pb("blur", v)
+    /** v1.7.3: strength of the glow from the track cover, 0…100 */
+    var glow: Int get() = i("glow", 70); set(v) = pi("glow", v.coerceIn(0, 100))
     var bright: Int get() = i("bright", 80); set(v) = pi("bright", v.coerceIn(30, 100))
     var big: Boolean get() = b("big", false); set(v) = pb("big", v)
     /** C equalizer colours: ref (rainbow like the reference) / vu (green → red by level) */
     var eqPal: String get() = s("eqPal", "ref"); set(v) = ps("eqPal", v)
     /** absolute path of the chosen video background */
+    /** v1.7.3: a video folder chosen by hand (built-in folder browser or Android's folder picker) */
+    var videoDir: String get() = s("videoDir", ""); set(v) = ps("videoDir", v)
     var video: String get() = s("video", ""); set(v) = ps("video", v)
     var tiles: String get() = s("tiles", ""); set(v) = ps("tiles", v)
     /** v1.7.2: «Все приложения» was added once to an existing custom tile list (removing it later is respected) */
@@ -61,6 +65,16 @@ object K {
     /** "yyyy-MM-dd" of the current 4:00…4:00 day */
     var dayKey: String get() = s("dayKey", ""); set(v) = ps("dayKey", v)
     var trip: Float get() = f("trip", 0f); set(v) = pf("trip", v)
+    /** v1.7.3: «Поездка» starts again by itself: after the ignition was off (unit asleep / rebooted) or a stop > [tripGapMin] */
+    var tripAuto: Boolean get() = b("tripAuto", true); set(v) = pb("tripAuto", v)
+    var tripGapMin: Int get() = i("tripGapMin", 30); set(v) = pi("tripGapMin", v.coerceIn(5, 720))
+    /** the ignition was off since the last movement → the next metre starts a new trip */
+    var tripNewPending: Boolean get() = b("tripNewPending", false); set(v) = pb("tripNewPending", v)
+    /** wall-clock time of the unit's boot that was last seen (a new boot = the ignition was off) */
+    var tripBootAt: Long get() = l("tripBootAt", 0L); set(v) = pl("tripBootAt", v)
+    /** wall-clock ms: last time distance was added / when the current trip started */
+    var tripMovedAt: Long get() = l("tripMovedAt", 0L); set(v) = pl("tripMovedAt", v)
+    var tripStartAt: Long get() = l("tripStartAt", 0L); set(v) = pl("tripStartAt", v)
     var total: Float get() = f("total", 0f); set(v) = pf("total", v)
 
     // ---- volume ----

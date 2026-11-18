@@ -141,11 +141,13 @@ class LensView(c: Context) : View(c) {
         // ---- centre ring ----
         val x = Lens.X; val y = Lens.Y; val rc = Lens.RC; val ro = Lens.RO
         if (mode == "cover" && cover != null) {
-            p.alpha = if (photo) 128 else 77; p.maskFilter = null
-            // soft halo from the cover: tiny copy scaled up = cheap blur
+            // soft halo from the cover: tiny copy scaled up = cheap blur; v1.7.3: strength = «Сила подсветки» (K.glow)
+            val g = K.glow / 100f
+            p.alpha = (255 * (0.15f + 0.85f * g)).toInt().coerceIn(0, 255); p.maskFilter = null
             val hb = halo(cover!!)
             p.isFilterBitmap = true
-            cv.drawBitmap(hb, null, RectF(x - rc * 1.9f, y - rc * 1.9f, x + rc * 1.9f, y + rc * 1.9f), p); p.alpha = 255
+            val hr = rc * (1.7f + 0.8f * g)
+            cv.drawBitmap(hb, null, RectF(x - hr, y - hr, x + hr, y + hr), p); p.alpha = 255
         } else {
             p.maskFilter = blur(40f); p.color = Ck.alpha(if (mode == "clock") 0xFF3A6A8A.toInt() else accent, if (mode == "clock") .22f else .28f)
             cv.drawCircle(x, y, rc * 1.4f, p); p.maskFilter = null

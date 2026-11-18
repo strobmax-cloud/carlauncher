@@ -20,7 +20,7 @@ object FmCtl {
     const val C_NEXT_CHANNEL = 0; const val C_PREV_CHANNEL = 1
     const val C_FREQ_UP = 3; const val C_FREQ_DOWN = 4; const val C_SEEK_UP = 5; const val C_SEEK_DOWN = 6
     const val U_BAND = 0; const val U_FREQ = 1; const val U_PS = 14; const val U_EXTRA = 16
-    const val C_APP_ID = 0; const val APP_ID_RADIO = 1; const val APP_ID_CAR_RADIO = 11
+    const val C_APP_ID = 0; const val APP_ID_RADIO = 1; const val APP_ID_BTAV = 3; const val APP_ID_CAR_RADIO = 11
     private const val MODULE = "com.syu.ipc.IRemoteModule"
     private const val CALLBACK = "com.syu.ipc.IModuleCallback"
 
@@ -101,6 +101,9 @@ object FmCtl {
         cmd(m, C_APP_ID, intArrayOf(APP_ID_CAR_RADIO))
         return cmd(m, C_APP_ID, intArrayOf(APP_ID_RADIO))
     }
+    /** v1.7.3: the unit's audio source = Bluetooth music from the phone (APP_ID_BTAV, what the stock BT-music app sends) */
+    fun sourceBt(): Boolean { val m = main ?: return false; return cmd(m, C_APP_ID, intArrayOf(APP_ID_BTAV)) }
+    fun hasMain() = main != null
     fun seek(up: Boolean) = cmd(radio, if (up) C_SEEK_UP else C_SEEK_DOWN)
     fun step(up: Boolean) = cmd(radio, if (up) C_FREQ_UP else C_FREQ_DOWN)
 
