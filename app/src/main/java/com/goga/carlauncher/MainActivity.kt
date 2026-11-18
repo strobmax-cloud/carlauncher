@@ -11,7 +11,7 @@ import android.os.Bundle
 
 /**
  * v1.7.1 home activity: the new two-screen interface (Главная / Музыка) in style C «Линза» or D «Стекло», see [Cockpit].
- * The 1.7.0 screens are still in the app as [ClassicActivity] (Настройки → О программе).
+ * v1.7.7: the old 1.7.0 screens (ClassicActivity, mini player, floating «Домой») are removed — this is the only launcher screen.
  *
  * SAFETY (owner's rule): this activity never intercepts keys (no onKeyDown / dispatchKeyEvent override → steering-wheel
  * buttons go to the system as before), never touches the MCU or system settings; «Вернуть штатный экран» is in

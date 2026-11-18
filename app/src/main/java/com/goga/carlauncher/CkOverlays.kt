@@ -670,14 +670,14 @@ class Overlays(private val ck: Cockpit) {
     }
     private fun secMem(p: LinearLayout) {
         add(p, null, W.row(a, "Открыть «Память и очистка»", "Свободное место, самые большие приложения, очистка кэша через системные окна", null) { clean() },
-            W.row(a, "Подробно: папки и APK", "Старый экран очистки 1.7.0 (папки во внутренней памяти, файлы установки)", null) { classic("clean") },
+            W.row(a, "Папки и файлы установки", "Самые большие папки во внутренней памяти и забытые .apk", null) { folders() },
             W.row(a, "Предупреждение «Мало места»", "Полоска появляется, когда свободно меньше 10 %. Скрытая — вернётся через 3 дня", W.button(a, "Показать снова", 200, 50) { K.lowHideUntil = 0; ck.checkLow() }, W.WR, 50))
     }
     private fun secUpd(p: LinearLayout) {
         add(p, null,
             W.row(a, "Версия", Updater.installedName(a) + " (" + Updater.installedCode(a) + ")", null),
             W.row(a, "Проверить обновления", "Скачивается с GitHub, проверяется подпись и контрольная сумма. После установки файл обновления удаляется", null) { Updater.check(a) },
-            W.row(a, "С телефона по Wi‑Fi", "Передать APK с телефона на магнитолу", null) { classic("upload") })
+            W.row(a, "С телефона по Wi‑Fi", "Передать APK с телефона на магнитолу (QR-код, та же сеть Wi‑Fi)", null) { try { UploadDialog(a) {}.show() } catch (_: Throwable) { ck.showToast("Не удалось открыть") } })
     }
     /** v1.7.5: the system bar of the unit, ◁ ○ □ in the launcher and floating over other apps */
     private fun secSysNav(p: LinearLayout) {
@@ -697,6 +697,10 @@ class Overlays(private val ck: Cockpit) {
             W.row(a, "Плавающие кнопки ◁ ○ □", "Поверх навигатора, музыки и др. Перетаскиваются за полоску слева, место запоминается",
                 W.Toggle(a, K.floatOn) { K.floatOn = it; if (it && !NavAccess.enabled(a)) navHelp(); NavAccess.refresh() }, 76, 42),
             segRow("Размер плавающих кнопок", null, listOf("0" to "Маленькие", "1" to "Средние", "2" to "Крупные"), K.floatSize.toString()) { K.floatSize = it.toInt(); NavAccess.refresh() },
+            W.row(a, "Кнопки перемотки ±${K.seekStep} с", if (MediaHub.listenerEnabled(a)) "«−${K.seekStep}» и «+${K.seekStep}» на плавающих кнопках, пока в открытом приложении играет видео или музыка (SmartTube, YouTube, плееры)"
+                else "Для точной перемотки нужен «Доступ к музыке» — нажмите. Без него кнопки работают только в видеоприложениях и шагом самого плеера",
+                W.Toggle(a, K.seekOn) { K.seekOn = it; NavAccess.refresh() }, 76, 42) { if (!MediaHub.listenerEnabled(a)) AppRepo.startSafe(a, Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS), Intent(Settings.ACTION_SETTINGS)) },
+            segRow("Шаг перемотки", null, listOf("10" to "10 с", "15" to "15 с", "30" to "30 с"), K.seekStep.toString()) { K.seekStep = it.toInt(); NavAccess.refresh(); refreshSettings() },
             W.row(a, "Приглушать через 4 секунды", "Кнопки становятся почти прозрачными, касание — снова яркие", W.Toggle(a, K.floatDim) { K.floatDim = it; NavAccess.refresh() }, 76, 42),
             W.row(a, "Вернуть кнопки в правый нижний угол", null, null) { K.floatX = -1; K.floatY = -1; NavAccess.refresh(); ck.showToast("Кнопки — в правом нижнем углу") })
     }
@@ -711,8 +715,7 @@ class Overlays(private val ck: Cockpit) {
 
     private fun secAbout(p: LinearLayout) {
         add(p, null,
-            W.row(a, "Car Launcher " + Updater.installedName(a), "Главный экран для TEYES / FYT. Не перехватывает кнопки руля и не меняет настройки магнитолы", null),
-            W.row(a, "Классический экран 1.7.0", "Прежний интерфейс (на случай, если что-то не работает в новом)", null) { classic("") })
+            W.row(a, "Car Launcher " + Updater.installedName(a), "Главный экран для TEYES / FYT. Не перехватывает кнопки руля и не меняет настройки магнитолы", null),)
         add(p, "Вернуть штатный экран", *stockRows().toTypedArray())
         val log = CrashLog.text(a)
         add(p, "Журнал сбоев", W.row(a, "Журнал сбоев", if (log.isEmpty()) "Сбоев не было" else "Записей: ${log.split("=== ").size - 1}. Копия: Android/data/${a.packageName}/files/crash.log", null) { crashLog() })
@@ -750,8 +753,33 @@ class Overlays(private val ck: Cockpit) {
         })
         return out
     }
-    private fun classic(what: String) {
-        try { a.startActivity(Intent(a, ClassicActivity::class.java).putExtra(ClassicActivity.EXTRA_OPEN, what)) } catch (_: Throwable) { ck.showToast("Не удалось открыть") }
+    /** v1.7.7 (replaces the old 1.7.0 cleanup screen): biggest folders of the internal memory + forgotten .apk files */
+    fun folders() {
+        val s = popup("folders", 120, 40, 1040, 640)
+        s.put(W.header(a, "trash", "Папки и файлы установки", null) { close("folders") }, 28, 16, 984, 56)
+        val body = W.vbox(a)
+        val status = t(18f, 0x99FFFFFF.toInt(), lines = 2).apply { text = "Считаю размеры папок…" }
+        body.addView(status, lin(W.M, W.WR))
+        val g = group(); body.addView(g, lin(W.M, W.WR).apply { topMargin = 12 })
+        val apkBox = W.vbox(a); body.addView(apkBox, lin(W.M, W.WR).apply { topMargin = 12 })
+        body.addView(t(16f, 0x80FFFFFF.toInt(), lines = 3).apply { text = "Car Launcher сам файлы не удаляет — откройте файловый менеджер и удалите ненужное там." }, lin(W.M, W.WR).apply { topMargin = 12 })
+        s.put(scroll(body), 28, 84, 984, 540)
+        val app = a.applicationContext
+        AppRepo.exec.execute {
+            val list = try { Cleanup.folders() } catch (_: Throwable) { emptyList() }
+            val apks = try { Cleanup.apks() } catch (_: Throwable) { emptyList() }
+            AppRepo.main.post {
+                status.text = if (list.isEmpty()) "Нет доступа к файлам — Настройки Android → Приложения → Car Launcher → Разрешения → Файлы" else "Самые большие папки во внутренней памяти"
+                for (f in list.take(12)) g.addView(W.row(a, f.name, (if (f.hint.isNotEmpty()) f.hint + " · " else "") + Storage.gb(f.bytes), null), lin(W.M, W.WR))
+                if (apks.isNotEmpty()) apkBox.addView(t(18f, 0xFF30D158.toInt(), lines = 4).apply {
+                    text = "Файлы установки (.apk): ${apks.size} шт., ${Storage.gb(apks.sumOf { it.length() })} — " + apks.take(4).joinToString { it.name } + ". После установки их можно удалить"
+                }, lin(W.M, W.WR))
+                val names = setOf("файлы", "files", "файловый менеджер", "file manager", "total commander", "mixplorer", "проводник")
+                AppRepo.apps?.firstOrNull { it.label.trim().lowercase() in names }?.pkg?.let { fm ->
+                    apkBox.addView(W.button(a, "Открыть «${Tiles.label(app, fm)}»", 360, 56, primary = true) { AppRepo.launch(a, fm) }, lin(W.WR, 56).apply { topMargin = 12 })
+                }
+            }
+        }
     }
 
     // ================================================================== «Память и очистка»
@@ -769,7 +797,7 @@ class Overlays(private val ck: Cockpit) {
             AppRepo.startSafe(a, Intent(android.os.storage.StorageManager.ACTION_MANAGE_STORAGE), Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS), Intent(Settings.ACTION_SETTINGS))
         }, lin(W.WR, 56).apply { rightMargin = 12 })
         btns.addView(W.button(a, "Хранилище", 180, 56) { AppRepo.startSafe(a, Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS), Intent(Settings.ACTION_SETTINGS)) }, lin(W.WR, 56).apply { rightMargin = 12 })
-        btns.addView(W.button(a, "Папки и APK…", 180, 56) { classic("clean") }, lin(W.WR, 56))
+        btns.addView(W.button(a, "Папки и APK…", 180, 56) { folders() }, lin(W.WR, 56))
         body.addView(btns, lin(W.M, W.WR).apply { topMargin = 14 })
         val how = group()
         how.rows(W.row(a, "Как очистить кэш", "Android разрешает чистить кэш только на странице приложения. Нажмите «Очистить кэш» у приложения → откроется его страница → «Хранилище» (или «Память») → «Очистить кэш». Вернитесь назад — список обновится сам", null))

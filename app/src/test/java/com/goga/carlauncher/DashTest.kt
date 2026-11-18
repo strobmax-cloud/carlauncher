@@ -34,40 +34,6 @@ class DashTest {
     }
     private fun all(v: View, out: ArrayList<View> = ArrayList()): ArrayList<View> { if (v.isShown) out.add(v); if (v is ViewGroup) for (k in 0 until v.childCount) all(v.getChildAt(k), out); return out }
 
-    @Test fun dashboardsFitAndStayHonest() {
-        val c = Robolectric.buildActivity(ClassicActivity::class.java).setup(); settle(); val act = c.get(); val root = act.window.decorView
-        val banned = listOf("ПОЕЗДКА", "В ПУТИ", "МАКС", "ОБ/МИН", "RPM", "ТОПЛИВО", "°C")
-        for (id in listOf("cluster", "chrono", "radial", "showcase")) for (m in listOf("day", "night")) {
-            Prefs.layout = id; Prefs.dayMode = m; act.rebuild(); settle(2); relayout(root); settle(1)
-            assertEquals(m == "day", Dash.light(act))
-            val vs = all(root)
-            val t = vs.filterIsInstance<TextView>().map { it.text.toString().uppercase() }
-            assertTrue("$id: no trip/OBD captions $t", t.none { s -> banned.any { s.contains(it) } })
-            assertTrue("$id: no map", vs.none { it is MapTileView })
-            if (id != "chrono") assertTrue("$id/$m: speed shows — without GPS", t.any { it == "—" })   // chrono paints it on the dial
-            // v1.7.1: the side menu is longer (Назад / Недавние) and scrolls — its items may sit below the fold by design
-            fun inScroll(v: View): Boolean { var p = v.parent; while (p != null) { if (p is android.widget.ScrollView) return true; p = p.parent }; return false }
-            for (v in vs) if (v is TextView && v.text.isNotEmpty() && v.width > 0 && !inScroll(v)) {
-                val loc = IntArray(2); v.getLocationInWindow(loc)
-                assertTrue("$id: '${v.text}' inside screen", loc[0] >= 0 && loc[1] >= 0 && loc[0] + v.width <= 1281 && loc[1] + v.height <= 721)
-            }
-        }
-        c.pause().stop().destroy()
-    }
-
-    @Test fun glowFallsBackToBreathingAndStops() {
-        val c = Robolectric.buildActivity(ClassicActivity::class.java).setup(); settle(); val act = c.get()
-        val g = act.glow!!
-        g.setActive(true); g.setPlaying(true); settle(1)
-        assertEquals("off by default", "off", g.mode)
-        Prefs.musicGlow = true; g.settingsChanged(); settle(2)
-        assertEquals("no RECORD_AUDIO → breathing", "breath", g.mode)
-        g.setPlaying(false); settle(1); assertEquals("stops without music", "off", g.mode)
-        g.setPlaying(true); settle(1); assertEquals("breath", g.mode)
-        c.pause(); settle(1); assertEquals("stops when paused", "off", g.mode)
-        c.stop().destroy()
-    }
-
     @Test fun vehicleDataIsEmptyWithoutObd() {
         assertNull(Vehicle.source); assertFalse(Vehicle.hasObd())
         assertNull(Vehicle.state.rpm); assertNull(Vehicle.state.coolantC); assertNull(Vehicle.state.volts); assertNull(Vehicle.state.fuelPct)
@@ -79,23 +45,4 @@ class DashTest {
         Vehicle.sinks.remove(sink); Vehicle.publish(VehicleState())
     }
 
-    @Test fun phoneSwitchOpensPairedList() {
-        val c = Robolectric.buildActivity(ClassicActivity::class.java).setup(); settle(); val act = c.get()
-        // no FYT BT app → Android Bluetooth settings
-        assertEquals("settings", PhoneSwitch.open(act))
-        assertEquals(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS, shadowOf(act).nextStartedActivity.action)
-        // FYT BT app with an exported device-list activity → that one
-        val spm = shadowOf(ctx.packageManager)
-        val ai = android.content.pm.ActivityInfo().apply { name = "com.syu.bt.act.ActBtDevList"; packageName = PhoneSwitch.FYT_BT; exported = true; enabled = true
-            applicationInfo = android.content.pm.ApplicationInfo().apply { packageName = PhoneSwitch.FYT_BT } }
-        spm.installPackage(android.content.pm.PackageInfo().apply { packageName = PhoneSwitch.FYT_BT; activities = arrayOf(ai)
-            applicationInfo = android.content.pm.ApplicationInfo().apply { packageName = PhoneSwitch.FYT_BT } })
-        assertEquals("fyt-devices", PhoneSwitch.open(act))
-        assertEquals("com.syu.bt.act.ActBtDevList", shadowOf(act).nextStartedActivity.component?.className)
-        // the rail button is there on the home screen
-        val btn = all(act.window.decorView).filterIsInstance<TextView>().first { it.text.toString() == "Сменить\nтелефон" }
-        (btn.parent as View).performClick()
-        assertEquals("com.syu.bt.act.ActBtDevList", shadowOf(act).nextStartedActivity.component?.className)
-        c.pause().stop().destroy()
-    }
 }

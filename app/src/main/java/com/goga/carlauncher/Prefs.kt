@@ -157,7 +157,7 @@ object Prefs {
     private fun put(k: String, v: String) = sp.edit().putString(k, v).apply()
     /** Side menu items (ids, see Rail), comma separated. */
     var railItems: String
-        get() = str("railitems", Rail.DEFAULT)
+        get() = str("railitems", "home,back,recents,apps,media,dvr,settings,layout,phone,wifi")
         set(v) = put("railitems", v)
     /** Side menu: "left" (default), "right" or "bottom" (dock). */
     var railSide: String

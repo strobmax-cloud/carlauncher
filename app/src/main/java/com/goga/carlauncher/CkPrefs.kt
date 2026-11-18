@@ -71,6 +71,10 @@ object K {
     /** 0 small, 1 medium, 2 large */
     var floatSize: Int get() = i("floatSize", 1); set(v) = pi("floatSize", v)
     var floatDim: Boolean get() = b("floatDim", true); set(v) = pb("floatDim", v)
+    /** v1.7.7: «−10» / «+10» on the floating pill while a player in front plays */
+    var seekOn: Boolean get() = b("seekOn", true); set(v) = pb("seekOn", v)
+    /** seek step, seconds: 10 / 15 / 30 */
+    var seekStep: Int get() = i("seekStep", 10); set(v) = pi("seekStep", v)
     var floatX: Int get() = i("floatX", -1); set(v) = pi("floatX", v)
     var floatY: Int get() = i("floatY", -1); set(v) = pi("floatY", v)
     var lastScreen: Int get() = i("lastScreen", 0); set(v) = pi("lastScreen", v)
