@@ -72,7 +72,7 @@ class Overlays(private val ck: Cockpit) {
         body.addView(W.seg(a, modes.map { it.second }, modes.indexOfFirst { it.first == cur }.coerceAtLeast(0), 60, 21f) { i ->
             val m = modes[i].first
             K.bg = m; ck.applyBackground(); ck.build(); close("bg"); bgPanel()
-            if (m == "video" && Videos.list.isEmpty()) Videos.scanAsync(a) { if (Videos.list.isEmpty()) ck.showToast("На флешке нет папки ${Videos.DIR} с .mp4") else { ck.applyBackground(); ck.build() } }
+            if (m == "video" && Videos.list.isEmpty()) Videos.scanAsync(a) { if (Videos.list.isEmpty()) { ck.showToast("Видео не найдено — выберите папку"); folderPicker(null) } else { ck.applyBackground(); ck.build() } }
         }, lin(W.M, 60))
         body.addView(t(19f, Ck.accent(), true, 2).apply { text = "Сейчас: " + modeText(cur) }, lin(W.M, W.WR).apply { topMargin = 10 })
         // 2) the settings of THIS mode only
@@ -98,6 +98,8 @@ class Overlays(private val ck: Cockpit) {
         g.rows(W.row(a, "Яркость фона", if (cur == "scene") "Для фото" else "Темнее / светлее", W.Slider(a, K.bright, 30, 100) { v, done ->
             K.bright = v; ck.refreshFx(); if (done && cur == "scene") ck.applyBackground()
         }, 300, 44))
+        // v1.7.3: glow from the track cover — on every background
+        g.rows(glowRow())
         body.addView(g, lin(W.M, W.WR).apply { topMargin = 12 })
         // 4) rain / snow
         body.addView(cap("Дождь и снег"), lin(W.M, W.WR).apply { topMargin = 16; bottomMargin = 8 })
@@ -105,6 +107,9 @@ class Overlays(private val ck: Cockpit) {
         body.addView(f, lin(W.M, W.WR))
         s.put(scroll(body), 28, 84, 824, 490)
     }
+    private fun glowRow(): View = W.row(a, "Сила подсветки от трека", "Цветной свет от обложки вокруг неё" + if (K.bg == "cover") " и на фоне" else "", W.Slider(a, K.glow, 0, 100) { v, done ->
+        K.glow = v; ck.refreshGlowLive(); if (done) ck.refreshGlow()
+    }, 300, 44)
     private fun modeText(m: String) = when (m) {
         "cover" -> "Обложка — цвет из обложки трека"; "scene" -> "Природа — фото " + if (K.scene == "auto") "по погоде" else "«${Scenes.current().name}»"
         "video" -> "Видео с флешки" + (Videos.chosen()?.let { " — ${Videos.nice(it.name).first}" } ?: " — не найдено"); else -> if (Ck.isC) "Тема — чёрная «Линза»" else "Тема — " + Ck.theme().name
@@ -167,9 +172,13 @@ class Overlays(private val ck: Cockpit) {
                     "Видео крутится по кругу без звука. Лучше 1280×720, до 1–2 минут. Имена road-… и nature-… сортируются по группам."
             }, lin(W.M, W.WR))
             val b = W.hbox(a)
-            b.addView(W.button(a, "Обновить список", 220, 54) { Videos.scanAsync(a) { close("gallery"); gallery(true) } }, lin(W.WR, 54))
-            if (list.isEmpty()) b.addView(W.button(a, "Разрешить доступ к файлам", 300, 54) { a.requestPerms() }, lin(W.WR, 54).apply { leftMargin = 12 })
+            // v1.7.3: choose ANY folder — built-in browser over all mounted sticks, or Android's own folder picker
+            b.addView(W.button(a, "Выбрать папку…", 230, 54, primary = true) { folderPicker(null) }.apply { contentDescription = "Выбрать папку" }, lin(W.WR, 54))
+            b.addView(W.button(a, "Через Android…", 220, 54) { a.pickVideoTree() }, lin(W.WR, 54).apply { leftMargin = 12 })
+            b.addView(W.button(a, "Обновить", 160, 54) { Videos.scanAsync(a) { close("gallery"); gallery(true) } }, lin(W.WR, 54).apply { leftMargin = 12 })
+            if (!a.hasFiles()) b.addView(W.button(a, "Разрешить доступ к файлам", 300, 54) { a.askFiles() }, lin(W.WR, 54).apply { leftMargin = 12 })
             body.addView(b, lin(W.M, W.WR).apply { topMargin = 14; bottomMargin = 10 })
+            if (K.videoDir.isNotEmpty()) body.addView(W.row(a, "Своя папка", K.videoDir, W.button(a, "Сбросить", 150, 48) { K.videoDir = ""; Videos.scanAsync(a) { close("gallery"); gallery(true) } }, W.WR, 48), lin(W.M, W.WR))
             if (list.isEmpty()) body.addView(t(22f, Color.WHITE, true, 2).apply { text = "Видео не найдено.\nПроверено: ${Videos.roots(a).joinToString { it.second.path }.take(200)}" }, lin(W.M, W.WR).apply { topMargin = 10 })
             val g = group()
             for ((grp, clips) in list.groupBy { it.group }) {
@@ -257,6 +266,59 @@ class Overlays(private val ck: Cockpit) {
     }
 
     // ================================================================== tile editor
+    // ================================================================== video folder browser (v1.7.3)
+    /** [path] null = the list of sticks / memory; else one folder: its sub-folders + «Выбрать эту папку» */
+    fun folderPicker(path: String?) {
+        val s = popup("folders", 90, 30, 1100, 660)
+        val dir = path?.let { java.io.File(it) }
+        s.put(W.header(a, "folder", if (dir == null) "Папка с видео — где искать" else dir.name.ifEmpty { dir.path }, dir?.path) { close("folders") }, 28, 14, 1044, 64)
+        val body = W.vbox(a)
+        if (!a.hasFiles()) {
+            val g = group(); g.rows(W.row(a, "Нет доступа к файлам", "Без разрешения флешка выглядит пустой", W.button(a, "Разрешить", 170, 48, primary = true) { a.askFiles() }, W.WR, 48))
+            body.addView(g, lin(W.M, W.WR).apply { bottomMargin = 12 })
+        }
+        val g = group()
+        if (dir == null) {
+            val vols = try { Videos.roots(a) } catch (_: Throwable) { emptyList() }
+            if (vols.isEmpty()) g.rows(W.row(a, "Накопители не найдены", "Вставьте флешку и нажмите «Обновить»", null))
+            for ((name, root) in vols) {
+                val n = try { Videos.dirsOn(root).sumOf { Videos.videosIn(it).size } } catch (_: Throwable) { 0 }
+                g.rows(W.row(a, name, root.path + if (n > 0) " · найдено видео: $n" else "", Ck.icon(a, "folder", 0xB3FFFFFF.toInt()), 26, 26) { folderPicker(root.path) })
+            }
+        } else {
+            val up = dir.parentFile
+            g.rows(W.row(a, "⬆ Назад", if (up != null && Videos.roots(a).none { it.second.path == dir.path }) up.path else "к списку накопителей", null) {
+                folderPicker(if (up != null && Videos.roots(a).none { it.second.path == dir.path }) up.path else null)
+            })
+            val subs = try { Media.list(dir, "video").filter { it.dir } } catch (_: Throwable) { emptyList() }
+            val readable = dir.listFiles() != null
+            if (!readable) g.rows(W.row(a, "Нет доступа к этой папке", "Разрешите доступ к файлам или выберите папку «Через Android…»", null))
+            for (e in subs) {
+                val n = try { Videos.videosIn(e.file, false).size } catch (_: Throwable) { 0 }
+                g.rows(W.row(a, e.file.name, if (n > 0) "видео: $n" else null, Ck.icon(a, "folder", 0xB3FFFFFF.toInt()), 26, 26) { folderPicker(e.file.path) })
+            }
+        }
+        body.addView(g, lin(W.M, W.WR))
+        s.put(scroll(body), 28, 92, 1044, if (dir == null) 540 else 470)
+        if (dir != null) {
+            val n = try { Videos.videosIn(dir).size } catch (_: Throwable) { 0 }
+            val bar = W.hbox(a).apply { gravity = Gravity.CENTER_VERTICAL }
+            bar.addView(t(20f, if (n > 0) Color.WHITE else 0x99FFFFFF.toInt()).apply { text = if (n > 0) "Видео в этой папке: $n" else "В этой папке нет видео (.mp4 …)" }, lin(0, W.WR, 1f))
+            bar.addView(W.button(a, "Выбрать эту папку", 280, 58, primary = n > 0) { useVideoDir(dir.path) }, lin(W.WR, 58))
+            s.put(bar, 28, 578, 1044, 62)
+        }
+    }
+    /** a folder chosen by hand → its videos become the background list */
+    fun useVideoDir(path: String) {
+        K.videoDir = path
+        Videos.scanAsync(a) {
+            val first = Videos.videosIn(java.io.File(path)).minByOrNull { it.name.lowercase() }
+            if (first == null) { ck.showToast("В папке нет видео: $path"); return@scanAsync }
+            K.video = first.path; K.bg = "video"; close("folders"); close("gallery"); ck.applyBackground(); ck.build()
+            ck.showToast("Видео из папки «${java.io.File(path).name}»: ${Videos.list.size}")
+        }
+    }
+
     // ================================================================== Все приложения (v1.7.2)
     private var appsShowHidden = false
     private fun hiddenSet() = K.hiddenApps.split(',').filter { it.isNotEmpty() }.toMutableSet()
@@ -468,7 +530,8 @@ class Overlays(private val ck: Cockpit) {
             W.row(a, "Фото природы", Scenes.current().name, null) { gallery() },
             W.row(a, "Видео с флешки", Videos.chosen()?.name ?: "не выбрано · найдено ${Videos.list.size}", null) { gallery(true) },
             W.row(a, "Размытие фото и видео", null, W.Toggle(a, K.blur) { K.blur = it; ck.applyBackground() }, 76, 42),
-            W.row(a, "Яркость фона", "Для всех фонов: темы, обложки, фото и видео", W.Slider(a, K.bright, 30, 100) { v, done -> K.bright = v; ck.refreshFx(); if (done && K.bg == "scene") ck.applyBackground() }, 300, 44))
+            W.row(a, "Яркость фона", "Для всех фонов: темы, обложки, фото и видео", W.Slider(a, K.bright, 30, 100) { v, done -> K.bright = v; ck.refreshFx(); if (done && K.bg == "scene") ck.applyBackground() }, 300, 44),
+            glowRow())
         val fx = group(); fxRows(fx) { refreshSettings() }
         p.addView(cap("Дождь и снег"), lin(W.M, W.WR).apply { topMargin = 14; bottomMargin = 8; leftMargin = 6 }); p.addView(fx, lin(W.M, W.WR))
     }

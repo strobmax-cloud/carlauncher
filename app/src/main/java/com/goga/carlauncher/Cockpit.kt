@@ -273,7 +273,7 @@ class Cockpit(val a: MainActivity) {
     }
     private fun buildInner() {
         page.removeAllViews(); milTv.clear(); srcBtns.clear(); presetBtns.clear()
-        lens = null; eq = null; gauge = null; clockTv = null; dateTv = null; speedTv = null; npTitle = null; npArtist = null; npCap = null; npCover = null
+        glows.clear(); lens = null; eq = null; gauge = null; clockTv = null; dateTv = null; speedTv = null; npTitle = null; npArtist = null; npCap = null; npCover = null
         playBtn = null; seek = null; tPos = null; tDur = null; wxIcon = null; wxTemp = null; wxPlace = null; lowStrip = null
         page.put(swipeLayer(), 0, 0, Ck.W, Ck.H)
         if (nature) buildNature() else if (Ck.isC) buildC() else buildD()
@@ -320,7 +320,10 @@ class Cockpit(val a: MainActivity) {
         val row = W.hbox(a)
         val ph = if (big()) 54 else 50
         if (music) row.addView(W.pill(a, "mtn", "Природа", ph) { nature = true; applyBackground(); build() }, lin(W.WR, ph).apply { rightMargin = 12 })
-        row.addView(W.pill(a, "layers", "Фон", ph, overlays.isBgPanel()) { overlays.bgPanel() }, lin(W.WR, ph).apply { rightMargin = 12 })
+        // v1.7.3: ◀ Фон ▶ — next / previous background of the current kind right from the screen
+        row.addView(bgArrow(-1, ph), lin(ph + 8, ph).apply { rightMargin = 6 })
+        row.addView(W.pill(a, "layers", "Фон", ph, overlays.isBgPanel()) { overlays.bgPanel() }, lin(W.WR, ph).apply { rightMargin = 6 })
+        row.addView(bgArrow(1, ph), lin(ph + 8, ph).apply { rightMargin = 12 })
         val gear = W.pill(a, "gear", null, ph) { overlays.settings() }; gear.contentDescription = "Настройки"
         row.addView(gear, lin(ph, ph))
         if (clock) { val ct = if (Ck.isC) orb(if (big()) 44f else 36f) else t(if (big()) 44f else 38f).apply { typeface = Ck.sansL }; clockTv = ct; row.addView(ct, lin(W.WR, W.WR).apply { leftMargin = 20 }) }
@@ -764,7 +767,8 @@ class Cockpit(val a: MainActivity) {
                 }
                 page.put(stt, 40, 354, 400, 94)
             }
-            // now card
+            // now card (v1.7.3: coloured light from the cover around the card)
+            val gl = CoverGlow(a); glows.add(gl); page.put(gl, 856 - 120, 144 - 90, 396 + 240, 290 + 180)
             val card = FrameLayout(a).apply { background = Panel.card(26f) }
             val cv = ImageView(a).apply { scaleType = ImageView.ScaleType.CENTER_CROP; clipToOutline = true; outlineProvider = RoundOutline(20f) }
             npCover = cv; card.put(cv, 24, 24, 128, 128)
@@ -780,6 +784,7 @@ class Cockpit(val a: MainActivity) {
             tilesD()
         } else {
             val cv = ImageView(a).apply { scaleType = ImageView.ScaleType.CENTER_CROP; clipToOutline = true; outlineProvider = RoundOutline(40f); elevation = 18f }
+            val gl = CoverGlow(a); glows.add(gl); page.put(gl, 100 - 150, 104 - 130, 366 + 300, 366 + 260)
             npCover = cv; page.put(cv, 100, 104, 366, 366)
             Ck.pressable(cv, { overlays.sourceMenu() }) { openPlayer() }
             val ttl = t(if (bigk) 48f else 44f, Color.WHITE, true, 2); npTitle = ttl; page.put(ttl, 540, 104, 670, if (bigk) 112 else 104)
@@ -879,12 +884,24 @@ class Cockpit(val a: MainActivity) {
     }
 
     // ================================================================== Природа
+    private fun bgArrow(dir: Int, ph: Int): View {
+        val f = W.pill(a, if (dir < 0) "chL" else "chR", null, ph) { bgStep(dir) }
+        f.contentDescription = if (dir < 0) "Предыдущий фон" else "Следующий фон"
+        return f
+    }
+    /** v1.7.3: the arrows: next / previous photo, video, theme (persisted) */
+    fun bgStep(dir: Int) {
+        val name = BgCycle.step(dir, Ck.isC, nature)
+        applyBackground(); build(); showToast(name)
+    }
     private fun buildNature() {
         weather(40, 30, compact = true)
         val ct = (if (Ck.isC) orb(44f) else t(44f).apply { typeface = Ck.sansL }); clockTv = ct
         page.addView(ct, FrameLayout.LayoutParams(-2, -2, Gravity.END or Gravity.TOP).apply { rightMargin = 40; topMargin = 30 })
         val sc = W.pill(a, "img", Scenes.current().name, 50) { overlays.gallery() }
-        page.addView(sc, FrameLayout.LayoutParams(-2, 50, Gravity.CENTER_HORIZONTAL or Gravity.TOP).apply { topMargin = 30 })
+        val scRow = W.hbox(a).apply { gravity = Gravity.CENTER_VERTICAL }
+        scRow.addView(bgArrow(-1, 50), lin(58, 50).apply { rightMargin = 8 }); scRow.addView(sc, lin(W.WR, 50)); scRow.addView(bgArrow(1, 50), lin(58, 50).apply { leftMargin = 8 })
+        page.addView(scRow, FrameLayout.LayoutParams(-2, 50, Gravity.CENTER_HORIZONTAL or Gravity.TOP).apply { topMargin = 30 })
         val ttl = t(46f, Color.WHITE, true, 1, Gravity.CENTER).apply { setShadowLayer(14f, 0f, 2f, 0x99000000.toInt()); if (Ck.isC) typeface = Ck.juraB }
         npTitle = ttl; page.put(ttl, 140, 300, 1000, 60)
         val ar = t(24f, 0xE6FFFFFF.toInt(), false, 1, Gravity.CENTER).apply { setShadowLayer(10f, 0f, 2f, 0x99000000.toInt()) }
@@ -940,7 +957,7 @@ class Cockpit(val a: MainActivity) {
         val n = try { Np.now(a) } catch (_: Throwable) { return }
         val srcChanged = n.src != np.src && (n.src == "radio" || np.src == "radio")
         np = n
-        Eq.playing = n.playing
+        Eq.playing = n.playing; for (g in glows) g.playing = n.playing
         if (srcChanged && !editing && !overlays.open) { build(); return }
         run {
             npTitle?.let { if (it.text.toString() != n.title) it.text = n.title }
@@ -1006,7 +1023,12 @@ class Cockpit(val a: MainActivity) {
             }
         }
         lens?.let { it.cover = b; it.invalidate() }
+        for (g in glows) { g.set(b); g.playing = np.playing }
     }
+    private val glows = ArrayList<CoverGlow>()
+    /** after «Сила подсветки» changed */
+    fun refreshGlow() { refreshGlowLive(); if (K.bg == "cover") bg.refresh() }
+    fun refreshGlowLive() { for (g in glows) g.invalidate(); lens?.invalidate() }
     private fun fmt(ms: Long): String { val s = ms / 1000; return "${s / 60}:${String.format(Locale.US, "%02d", s % 60)}" }
 
     // ================================================================== actions
@@ -1039,7 +1061,14 @@ class Cockpit(val a: MainActivity) {
                     if (p != null) { AppRepo.launch(a, p); MediaHub.playWhenReady(a, p) } else showToast("Музыкальное приложение не найдено")
                 }
             }
-            "phone" -> { val p = CamApps.btMusic(a); if (p != null) AppRepo.launch(a, p) else showToast("Bluetooth-музыка не найдена") }
+            "phone" -> {
+                // v1.7.3: play the phone's sound without opening anything
+                when (BtAudio.select(a)) {
+                    BtAudio.Result.OK -> showToast("Телефон · Bluetooth" + (BtMeta.title?.let { " · $it" } ?: ""))
+                    BtAudio.Result.OPENED -> showToast("Магнитола не переключила звук сама — открыл Bluetooth-музыку")
+                    BtAudio.Result.NONE -> showToast("Bluetooth-музыка не найдена. Подключите телефон по Bluetooth")
+                }
+            }
         }
         h.postDelayed({ updMedia(true) }, 500)
     }

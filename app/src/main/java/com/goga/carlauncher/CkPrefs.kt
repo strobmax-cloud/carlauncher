@@ -41,11 +41,15 @@ object K {
     var wxKind: String get() = s("wxKind", "auto"); set(v) = ps("wxKind", v)       // auto / clear / cloudy / rain / snow
     var particles: Boolean get() = b("particles", true); set(v) = pb("particles", v)
     var blur: Boolean get() = b("blur", false); set(v) = pb("blur", v)
+    /** v1.7.3: strength of the glow from the track cover, 0…100 */
+    var glow: Int get() = i("glow", 70); set(v) = pi("glow", v.coerceIn(0, 100))
     var bright: Int get() = i("bright", 80); set(v) = pi("bright", v.coerceIn(30, 100))
     var big: Boolean get() = b("big", false); set(v) = pb("big", v)
     /** C equalizer colours: ref (rainbow like the reference) / vu (green → red by level) */
     var eqPal: String get() = s("eqPal", "ref"); set(v) = ps("eqPal", v)
     /** absolute path of the chosen video background */
+    /** v1.7.3: a video folder chosen by hand (built-in folder browser or Android's folder picker) */
+    var videoDir: String get() = s("videoDir", ""); set(v) = ps("videoDir", v)
     var video: String get() = s("video", ""); set(v) = ps("video", v)
     var tiles: String get() = s("tiles", ""); set(v) = ps("tiles", v)
     /** v1.7.2: «Все приложения» was added once to an existing custom tile list (removing it later is respected) */

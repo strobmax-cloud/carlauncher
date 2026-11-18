@@ -226,6 +226,12 @@ object MediaHub {
     fun pin(pkg: String?) { pinned = pkg; pinnedAt = SystemClock.elapsedRealtime(); if (pkg != null) Radio.on = false; repick() }
     /** «Радио» chosen by hand in «Источник». */
     fun pinRadio(pkg: String) { Radio.started(pkg); pinned = null; repick() }
+    /** v1.7.3: «Телефон» chosen by hand: the phone's Bluetooth audio is the source (shown with its track, controls = media keys) */
+    fun pinPhone(session: String?) {
+        Radio.on = false; pinned = session; pinnedAt = SystemClock.elapsedRealtime()
+        val now = SystemClock.elapsedRealtime(); BtMeta.at = now; BtMeta.playAt = now; BtMeta.playing = true; BtMeta.phone = true
+        repick()
+    }
 
     /** Phone audio over Bluetooth is what plays (no unit session plays, but the BT stack / BT app reported a playing track). */
     fun phoneActive(): Boolean = kind == Kind.PHONE || (kind == Kind.NONE && BtMeta.fresh() && BtMeta.playing)

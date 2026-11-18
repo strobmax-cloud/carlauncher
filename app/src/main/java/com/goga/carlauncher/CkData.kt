@@ -226,7 +226,7 @@ object Videos {
     fun roots(c: Context): List<Pair<String, File>> {
         val out = ArrayList<Pair<String, File>>()
         try { Media.volumes(c).forEach { out.add(it.name to it.dir) } } catch (_: Throwable) {}
-        listOf("/storage", "/mnt/media_rw", "/mnt/usb_storage", "/mnt/udisk", "/udisk").forEach { p ->
+        listOf("/storage", "/mnt/media_rw", "/mnt/usb_storage", "/mnt/udisk", "/udisk", "/mnt/usb", "/mnt/usbhost", "/mnt/usbdisk", "/storage/usb").forEach { p ->
             File(p).listFiles()?.forEach { d -> if (d.isDirectory && d.name != "self" && d.name != "emulated") out.add("Флешка" to d) }
         }
         out.add("Память" to Environment.getExternalStorageDirectory())
@@ -238,14 +238,23 @@ object Videos {
         n = n.replace(Regex("^(road|nature)[-_]", RegexOption.IGNORE_CASE), "").replace('_', ' ').replace('-', ' ').trim()
         return (n.replaceFirstChar { it.uppercase() }.ifEmpty { fileName }) to g
     }
+    val EXT = setOf("mp4", "m4v", "webm", "mkv", "3gp", "mov")
+    fun isVideo(f: File) = f.isFile && f.length() > 0 && f.name.substringAfterLast('.').lowercase() in EXT
+    /** a child folder by name, any letter case (CarLauncher/Backgrounds = carlauncher/backgrounds) */
+    fun child(dir: File, name: String): File? = try { dir.listFiles()?.firstOrNull { it.isDirectory && it.name.equals(name, true) } } catch (_: Throwable) { null }
+    /** folders looked at on one stick / memory: CarLauncher/Backgrounds, Backgrounds, CarLauncher (any case) */
+    fun dirsOn(root: File): List<File> = listOfNotNull(child(root, "CarLauncher")?.let { child(it, "Backgrounds") }, child(root, "Backgrounds"), child(root, "CarLauncher"))
+    fun videosIn(dir: File, sub: Boolean = true): List<File> {
+        val all = try { dir.listFiles() } catch (_: Throwable) { null } ?: return emptyList()
+        val here = all.filter { isVideo(it) }
+        return if (!sub) here else here + all.filter { it.isDirectory && !it.name.startsWith(".") }.flatMap { d -> videosIn(d, false) }
+    }
     fun scan(c: Context): List<Clip> {
         val res = ArrayList<Clip>()
-        for ((vol, root) in roots(c)) {
-            val dir = File(root, DIR)
-            val files = try { dir.listFiles() } catch (_: Throwable) { null } ?: continue
-            files.filter { it.isFile && it.length() > 0 && it.name.substringAfterLast('.').lowercase() in setOf("mp4", "m4v", "webm", "mkv", "3gp") }
-                .sortedBy { it.name.lowercase() }
-                .forEach { f -> val (n, g) = nice(f.name); res.add(Clip(f, n, g, vol)) }
+        // v1.7.3: the folder chosen by hand first, then the usual places on every mounted stick
+        K.videoDir.takeIf { it.isNotEmpty() }?.let { File(it) }?.let { d -> videosIn(d).sortedBy { it.name.lowercase() }.forEach { f -> val (n, g) = nice(f.name); res.add(Clip(f, n, g, d.name)) } }
+        for ((vol, root) in roots(c)) for (dir in dirsOn(root)) {
+            videosIn(dir).sortedBy { it.name.lowercase() }.forEach { f -> val (n, g) = nice(f.name); res.add(Clip(f, n, g, vol)) }
         }
         list = res.distinctBy { it.file.name + "/" + it.file.length() }
         scannedAt = System.currentTimeMillis()
@@ -257,4 +266,37 @@ object Videos {
     }
     /** the chosen clip, if its file is there now */
     fun chosen(): File? = K.video.takeIf { it.isNotEmpty() }?.let { File(it) }?.takeIf { it.isFile } ?: list.firstOrNull { it.file.name == File(K.video).name }?.file ?: list.firstOrNull()?.file
+}
+
+
+/**
+ * v1.7.3: ◀ ▶ on the screens: the next / previous background of the CURRENT kind (theme colour, nature photo,
+ * video clip). A kind with only one choice (cover, the black «Линза» theme, one video) → the next kind.
+ */
+object BgCycle {
+    private fun <T> next(l: List<T>, cur: Int, dir: Int) = l[Math.floorMod(cur + dir, l.size)]
+    fun kinds(): List<String> = listOf("theme", "cover", "scene") + (if (Videos.list.isNotEmpty()) listOf("video") else emptyList())
+    fun kindName(k: String) = when (k) { "cover" -> "Обложка"; "scene" -> "Природа"; "video" -> "Видео"; else -> "Тема" }
+    /** returns what is shown now, for the toast */
+    fun step(dir: Int, isC: Boolean, nature: Boolean): String {
+        val m = if (nature) "scene" else K.bg
+        when {
+            m == "scene" -> {
+                val ids = listOf("auto") + Scenes.ALL.map { it.id }
+                val id = next(ids, ids.indexOf(K.scene).coerceAtLeast(0), dir); K.scene = id
+                return "Природа · " + if (id == "auto") "авто по погоде" else Scenes.current().name
+            }
+            m == "theme" && !isC -> {
+                val t = next(Ck.THEMES, Ck.THEMES.indexOfFirst { it.id == K.theme }.coerceAtLeast(0), dir); K.theme = t.id
+                return "Тема · " + t.name
+            }
+            m == "video" && Videos.list.size > 1 -> {
+                val l = Videos.list; val cur = l.indexOfFirst { it.file.path == Videos.chosen()?.path }.coerceAtLeast(0)
+                val c = next(l, cur, dir); K.video = c.file.path
+                return "Видео · " + c.name
+            }
+        }
+        val ks = kinds(); val k = next(ks, ks.indexOf(m).let { if (it < 0) 0 else it }, dir); K.bg = k
+        return "Фон: " + kindName(k) + when (k) { "scene" -> " · " + Scenes.current().name; "video" -> Videos.chosen()?.let { " · " + Videos.nice(it.name).first } ?: ""; "theme" -> if (isC) "" else " · " + Ck.theme().name; else -> "" }
+    }
 }
