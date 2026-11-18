@@ -39,7 +39,7 @@ class NewYearMock {
         root.measure(View.MeasureSpec.makeMeasureSpec(1280, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(720, View.MeasureSpec.EXACTLY)); root.layout(0, 0, 1280, 720)
     }
     private fun all(v: View): List<View> = if (v is ViewGroup) listOf(v) + (0 until v.childCount).flatMap { all(v.getChildAt(it)) } else listOf(v)
-    private val out = File("/workspace/car-design/png-newyear-v2").apply { mkdirs() }
+    private val out = File("/workspace/car-design/png-newyear-v3").apply { mkdirs() }
     private fun shot(v: View, name: String) {
         val b = Bitmap.createBitmap(v.width, v.height, Bitmap.Config.ARGB_8888); v.draw(Canvas(b))
         FileOutputStream(File(out, "$name.png")).use { b.compress(Bitmap.CompressFormat.PNG, 100, it) }
@@ -69,7 +69,7 @@ class NewYearMock {
             if (sc == "fon") { K.fonKind = "scene" }
             val (a, root) = open(st, sc)
             dump(a, name)
-            if (festive) { NewYear2.attach(a, name); settle(); relayout(root); settle() }
+            if (festive) { NewYear3.attach(a, name); settle(); relayout(root); settle() }
             shot(root, if (festive) "ny-$name" else "base-$name")
             a.finish()
         }
