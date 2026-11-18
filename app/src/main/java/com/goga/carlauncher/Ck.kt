@@ -178,11 +178,27 @@ class Stage(c: Context) : FrameLayout(c) {
         clipChildren = false
         addView(stage, LayoutParams(Ck.W, Ck.H))
     }
+    private var lastTop = 0; private var lastBottom = 0
+    /** v1.7.6: the bar is hidden in the launcher right now (our immersive flags are in effect) */
+    @Suppress("DEPRECATION")
+    fun barHidden(): Boolean = K.ready && K.hideBar &&
+        ((rootView.systemUiVisibility or windowSystemUiVisibility) and android.view.View.SYSTEM_UI_FLAG_FULLSCREEN) != 0
     override fun onApplyWindowInsets(insets: android.view.WindowInsets): android.view.WindowInsets {
-        // manual override (Настройки → Экран и кнопки), for a firmware whose bar does not report its height
-        val t = if (K.ready && K.topPad >= 0 && !K.hideBar) K.topPad else insets.systemWindowInsetTop; val b = insets.systemWindowInsetBottom
-        if (t != topInset || b != bottomInset) { topInset = t; bottomInset = b; requestLayout() }
+        lastTop = insets.systemWindowInsetTop; lastBottom = insets.systemWindowInsetBottom
+        refit()
         return insets
+    }
+    /**
+     * Recompute the free area. v1.7.6 fix: with the bar hidden the stage uses the whole window (1280×720 → scale 1, the
+     * top row hugs the real top edge). Before, LAYOUT_STABLE made the insets keep the bar's height even while it was
+     * hidden, so the whole stage stayed shrunk and pushed down by ~60–80 px.
+     */
+    fun refit() {
+        val hidden = barHidden()
+        // manual override (Настройки → Экран и кнопки), for a firmware whose bar does not report its height
+        val t = when { hidden -> 0; K.ready && K.topPad >= 0 -> K.topPad; else -> lastTop }
+        val b = if (hidden) 0 else lastBottom
+        if (t != topInset || b != bottomInset) { topInset = t; bottomInset = b; requestLayout() }
     }
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
         val w = r - l; val h = b - t
