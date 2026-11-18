@@ -104,13 +104,20 @@ class MainActivity : Activity() {
      * «Скрывать системную панель», the bar is hidden in the launcher only (immersive sticky: a swipe from the top
      * shows it for a moment). Nothing in Android settings is changed — other apps keep the bar.
      */
+    private var barListener = false
     @Suppress("DEPRECATION")
     fun applyBars() {
-        val base = android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE or android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+        // v1.7.6: no LAYOUT_STABLE while hiding — stable insets keep reporting the bar's height although it is gone
+        val full = android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
         val hide = android.view.View.SYSTEM_UI_FLAG_FULLSCREEN or android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
         try {
-            window.decorView.systemUiVisibility = if (K.hideBar) base or hide else base
+            val d = window.decorView
+            d.systemUiVisibility = if (K.hideBar) full or hide else full or android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE
             window.statusBarColor = android.graphics.Color.TRANSPARENT; window.navigationBarColor = android.graphics.Color.TRANSPARENT
+            if (!barListener) { barListener = true
+                // the firmware may show / hide the bar on its own (or ignore our flags) → refit whenever the state changes
+                d.setOnSystemUiVisibilityChangeListener { ck.root.refit(); ck.root.requestApplyInsets() } }
+            ck.root.refit()
             ck.root.requestApplyInsets()
         } catch (t: Throwable) { CrashLog.soft(t) }
     }
