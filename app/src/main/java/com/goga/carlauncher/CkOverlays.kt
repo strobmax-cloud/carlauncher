@@ -588,10 +588,12 @@ class Overlays(private val ck: Cockpit) {
         Trip.checkDay()
         add(p, "Пробег (по GPS)",
             W.row(a, "За день", Trip.km(K.day) + " км · сам обнуляется в 4:00", null),
-            W.row(a, "Поездка", Trip.km(K.trip) + " км", W.button(a, "Сбросить", 150, 50, danger = true) { resetPopup("trip") }, W.WR, 50),
+            W.row(a, "Поездка", Trip.km(K.trip) + " км" + (K.tripStartAt.takeIf { it > 0 }?.let { " · с " + java.text.SimpleDateFormat("d MMM HH:mm", java.util.Locale("ru")).format(java.util.Date(it)) } ?: ""), W.button(a, "Сбросить", 150, 50, danger = true) { resetPopup("trip") }, W.WR, 50),
+            W.row(a, "Новая поездка сама", "После выключения зажигания или стоянки дольше ${K.tripGapMin} мин «Поездка» начинается с нуля, как только машина тронется. Сбросить вручную — удержание «Поездки»", W.Toggle(a, K.tripAuto) { K.tripAuto = it; refreshSettings() }, 76, 42),
+            segRow("Стоянка для новой поездки", null, listOf("30" to "30 мин", "60" to "1 ч", "120" to "2 ч", "240" to "4 ч"), K.tripGapMin.toString()) { K.tripGapMin = it.toInt(); refreshSettings() },
             W.row(a, "Всего", Trip.km(K.total) + " км", W.button(a, "Сбросить", 150, 50, danger = true) { resetPopup("total") }, W.WR, 50))
         add(p, "Скорость",
-            W.row(a, "Скорость и пробег считаются по GPS", "Нужно разрешение «Местоположение». Шкала до 160 км/ч. Может отличаться от спидометра на 2–5 %", W.button(a, "Разрешение", 170, 50) { a.requestPerms() }, W.WR, 50))
+            W.row(a, "Скорость и пробег считаются по GPS", "Нужно разрешение «Местоположение» — лучше «Разрешить всегда», чтобы пробег считался и под навигатором. Может отличаться от спидометра на 2–5 %", W.button(a, "Разрешение", 170, 50) { a.requestPerms() }, W.WR, 50))
         add(p, "Камера",
             W.row(a, "Камера / регистратор", CamApps.dvr(a)?.let { Tiles.label(a, it) } ?: "приложение камеры магнитолы", null) { CamApps.openCamera(a) })
     }

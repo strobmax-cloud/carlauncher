@@ -65,6 +65,16 @@ object K {
     /** "yyyy-MM-dd" of the current 4:00…4:00 day */
     var dayKey: String get() = s("dayKey", ""); set(v) = ps("dayKey", v)
     var trip: Float get() = f("trip", 0f); set(v) = pf("trip", v)
+    /** v1.7.3: «Поездка» starts again by itself: after the ignition was off (unit asleep / rebooted) or a stop > [tripGapMin] */
+    var tripAuto: Boolean get() = b("tripAuto", true); set(v) = pb("tripAuto", v)
+    var tripGapMin: Int get() = i("tripGapMin", 30); set(v) = pi("tripGapMin", v.coerceIn(5, 720))
+    /** the ignition was off since the last movement → the next metre starts a new trip */
+    var tripNewPending: Boolean get() = b("tripNewPending", false); set(v) = pb("tripNewPending", v)
+    /** wall-clock time of the unit's boot that was last seen (a new boot = the ignition was off) */
+    var tripBootAt: Long get() = l("tripBootAt", 0L); set(v) = pl("tripBootAt", v)
+    /** wall-clock ms: last time distance was added / when the current trip started */
+    var tripMovedAt: Long get() = l("tripMovedAt", 0L); set(v) = pl("tripMovedAt", v)
+    var tripStartAt: Long get() = l("tripStartAt", 0L); set(v) = pl("tripStartAt", v)
     var total: Float get() = f("total", 0f); set(v) = pf("total", v)
 
     // ---- volume ----

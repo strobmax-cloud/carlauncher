@@ -179,4 +179,47 @@ class V173Test {
         shot(root, "phone")
         FmCtl.reset()
     }
+
+    // ---------------- 5. «Поездка» ----------------
+    @Test fun tripUpdatesLiveOnScreen() {
+        K.trip = 0f
+        val (a, root) = open("D", "home", music = false)
+        val l0 = android.location.Location("gps").apply { latitude = 51.1280; longitude = 71.4300; time = 1_000L; speed = 15f; accuracy = 5f }
+        Trip.onFix(l0)
+        var lat = 51.1280
+        for (k in 1..12) { lat += 0.0005; Trip.onFix(android.location.Location("gps").apply { latitude = lat; longitude = 71.4300; time = 1_000L + k * 4_000L; speed = 15f; accuracy = 5f }) }
+        settle(); relayout(root)
+        assertTrue("trip ${K.trip}", K.trip > 0.5f)
+        val shown = texts(root)
+        assertTrue("screen shows the new trip without a rebuild: $shown", shown.contains(Trip.km(K.trip) + " км"))
+    }
+
+    @Test fun tripStartsAgainAfterStopOrIgnition() {
+        val h = 3_600_000L
+        val t0 = 1_800_000_000_000L
+        Trip.add(5f, t0); assertEquals(5f, K.trip, 0.01f)
+        Trip.add(1f, t0 + 20 * 60_000L); assertEquals("20 min stop = same trip", 6f, K.trip, 0.01f)
+        assertFalse(Trip.checkTrip(t0 + 40 * 60_000L))
+        Trip.add(1f, t0 + 55 * 60_000L); assertEquals("35 min stop → new trip", 1f, K.trip, 0.01f)
+        assertEquals("day keeps counting", 7f, K.day, 0.01f)
+        // shown as 0 already when parked long, before moving
+        assertTrue(Trip.checkTrip(t0 + 55 * 60_000L + 31 * 60_000L)); assertEquals(0f, K.trip, 0.01f)
+        // ignition off → on (screen off ≥ 2 min) → the next metre starts a new trip, even after a short stop
+        Trip.add(3f, t0 + 2 * h)
+        Trip.screen(false, 10_000L); Trip.screen(true, 10_000L + 3 * 60_000L)
+        assertEquals("kept until moving", 3f, K.trip, 0.01f)
+        Trip.add(0.2f, t0 + 2 * h + 5 * 60_000L); assertEquals(0.2f, K.trip, 0.01f)
+        // short screen-off (< 2 min) is not an ignition cycle
+        Trip.screen(false, 500_000L); Trip.screen(true, 530_000L)
+        Trip.add(0.3f, t0 + 2 * h + 6 * 60_000L); assertEquals(0.5f, K.trip, 0.01f)
+        // a new boot = ignition was off
+        K.tripBootAt = 1_000L
+        Trip.checkBoot(nowWall = t0 + 3 * h, sinceBoot = 60_000L)
+        Trip.add(0.1f, t0 + 2 * h + 10 * 60_000L); assertEquals(0.1f, K.trip, 0.01f)
+        // the same boot seen again → nothing
+        Trip.checkBoot(nowWall = t0 + 3 * h + 1_000L, sinceBoot = 61_000L); Trip.add(0.1f, t0 + 2 * h + 11 * 60_000L); assertEquals(0.2f, K.trip, 0.01f)
+        // switched off → only by hand
+        K.tripAuto = false; Trip.add(1f, t0 + 10 * h); assertEquals(1.2f, K.trip, 0.01f)
+        Trip.reset("trip"); assertEquals(0f, K.trip, 0.01f)
+    }
 }

@@ -59,7 +59,8 @@ class MainActivity : Activity() {
     }
 
     fun requestPerms() {
-        val need = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.READ_EXTERNAL_STORAGE)
+        // v1.7.3: + location «all the time» (Android 10: one dialog) — the trip is counted while the navigator is on top
+        val need = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_BACKGROUND_LOCATION, Manifest.permission.READ_EXTERNAL_STORAGE)
             .filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
         if (need.isNotEmpty()) requestPermissions(need.toTypedArray(), 1)
     }

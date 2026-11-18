@@ -14,7 +14,16 @@ import java.util.Locale
 
 /** v1.7.2: crash log + automatic return to Car Launcher after a crash (instead of being left on the stock screen). */
 class App : Application() {
-    override fun onCreate() { super.onCreate(); CrashLog.install(this) }
+    override fun onCreate() {
+        super.onCreate(); CrashLog.install(this)
+        // v1.7.3 trip: ignition off → on = the unit booted again, or its screen was off ≥ 2 min (sleep mode)
+        try {
+            K.init(this); Trip.checkBoot()
+            registerReceiver(object : android.content.BroadcastReceiver() {
+                override fun onReceive(c: android.content.Context, i: android.content.Intent) { Trip.screen(i.action == android.content.Intent.ACTION_SCREEN_ON) }
+            }, android.content.IntentFilter().apply { addAction(android.content.Intent.ACTION_SCREEN_ON); addAction(android.content.Intent.ACTION_SCREEN_OFF) })
+        } catch (t: Throwable) { CrashLog.soft(t) }
+    }
 }
 
 object CrashLog {

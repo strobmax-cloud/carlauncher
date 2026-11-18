@@ -163,11 +163,40 @@ object Trip {
         val k = dayKey(now)
         if (K.dayKey != k) { K.dayKey = k; K.day = 0f }
     }
-    fun add(km: Float) {
+    fun add(km: Float, now: Long = System.currentTimeMillis()) {
         if (km <= 0f) return
-        checkDay(); K.day = K.day + km; K.trip = K.trip + km; K.total = K.total + km
+        checkDay(); checkTrip(now)
+        if (K.tripNewPending) { K.tripNewPending = false; K.trip = 0f; K.tripStartAt = 0L }
+        if (K.tripStartAt == 0L) K.tripStartAt = now
+        K.tripMovedAt = now
+        K.day = K.day + km; K.trip = K.trip + km; K.total = K.total + km
     }
-    fun reset(which: String) { when (which) { "trip" -> K.trip = 0f; "total" -> K.total = 0f; "day" -> K.day = 0f } }
+    /**
+     * v1.7.3 new trip by itself: the car stood (no distance added) longer than K.tripGapH hours — ignition off for the
+     * night, a long parking — → «Поездка» = 0 and the next metre starts a new trip. True when it was reset.
+     */
+    fun checkTrip(now: Long = System.currentTimeMillis()): Boolean {
+        val moved = K.tripMovedAt
+        if (!K.tripAuto || moved <= 0L || now - moved <= K.tripGapMin * 60_000L) return false
+        K.trip = 0f; K.tripMovedAt = 0L; K.tripStartAt = 0L; K.tripNewPending = false
+        return true
+    }
+    /** ignition off → on (the unit woke up / booted): the trip shown stays until the car moves, then starts from 0 */
+    fun ignitionCycle() { if (K.tripAuto && K.trip > 0f) K.tripNewPending = true }
+    /** a new boot of the unit since we last looked = the ignition was off */
+    fun checkBoot(nowWall: Long = System.currentTimeMillis(), sinceBoot: Long = SystemClock.elapsedRealtime()) {
+        val boot = nowWall - sinceBoot
+        val prev = K.tripBootAt
+        if (prev == 0L || Math.abs(boot - prev) > 120_000L) { if (prev != 0L) ignitionCycle(); K.tripBootAt = boot }
+    }
+    private var screenOffAt = 0L
+    /** screen off ≥ 2 min and back on = ACC off → on on the head unit (it sleeps instead of powering down) */
+    fun screen(on: Boolean, now: Long = SystemClock.elapsedRealtime()) {
+        if (!on) { screenOffAt = now; return }
+        if (screenOffAt > 0 && now - screenOffAt >= 120_000L) ignitionCycle()
+        screenOffAt = 0L
+    }
+    fun reset(which: String) { when (which) { "trip" -> { K.trip = 0f; K.tripMovedAt = 0L; K.tripStartAt = 0L; K.tripNewPending = false }; "total" -> K.total = 0f; "day" -> K.day = 0f } }
     fun km(v: Float): String = if (v >= 1000f) String.format(Locale("ru"), "%,d", Math.round(v)).replace('\u00a0', ' ') else String.format(Locale("ru"), "%.1f", v)
 
     fun onFix(l: Location) {
@@ -184,7 +213,7 @@ object Trip {
             // plausible: moving, not a jump (≤ 70 m/s)
             if ((kmh < 0 || kmh > 3f) && d > 2f && (dt <= 0 || d / dt < 70f)) {
                 pending += d
-                if (pending > 50f) { add(pending / 1000f); pending = 0f }
+                if (pending > 20f) { add(pending / 1000f); pending = 0f }
             }
         }
         last = l

@@ -123,7 +123,7 @@ class Cockpit(val a: MainActivity) {
     private val tick = object : Runnable {
         override fun run() {
             try {
-                updClock(); updMedia(false); Trip.checkDay()
+                updClock(); updMedia(false); Trip.checkDay(); if (Trip.checkTrip()) updMil()
                 if (Trip.stale() && Trip.speed != null) updSpeed()
             } catch (t: Throwable) { CrashLog.soft(t) }
             h.postDelayed(this, 1000)
@@ -131,7 +131,8 @@ class Cockpit(val a: MainActivity) {
     }
     private val mediaListener: () -> Unit = { updMedia(true) }
     private val wxListener: () -> Unit = { updWx(); if (bg.mode() == "scene" || bg.mode() == "video") bg.refresh(); updParticles() }
-    private val tripListener: () -> Unit = { updSpeed() }
+    // v1.7.3: the mileage on screen follows every GPS fix (1.7.1 refreshed only the speed → «Поездка» looked frozen)
+    private val tripListener: () -> Unit = { updSpeed(); updMil() }
 
     private fun setup() {
         st.addView(bg, FrameLayout.LayoutParams(Ck.W, Ck.H))
@@ -940,7 +941,7 @@ class Cockpit(val a: MainActivity) {
         updMil()
     }
     fun updMil() {
-        Trip.checkDay()
+        Trip.checkDay(); Trip.checkTrip()
         milTv["day"]?.text = Trip.km(K.day) + if (Ck.isC) "" else " км"
         milTv["trip"]?.text = Trip.km(K.trip) + if (Ck.isC) "" else " км"
         milTv["total"]?.text = Trip.km(K.total) + if (Ck.isC) "" else " км"
