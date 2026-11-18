@@ -81,17 +81,18 @@ class V173Test {
 
     @Test fun folderBrowserPicksAFolder() {
         val stick = File(ctx.cacheDir, "stick2").apply { deleteRecursively(); mkdirs() }
-        val d = File(stick, "Видео").apply { mkdirs() }; File(d, "nature-лес.mp4").writeBytes(ByteArray(10)); File(stick, "Музыка").mkdirs()
+        val d = File(stick, "Видео").apply { mkdirs() }; File(d, "nature-лес.mp4").writeBytes(ByteArray(10)); File(stick, "Документы").mkdirs()
         shadowOf(ctx).grantPermissions(android.Manifest.permission.READ_EXTERNAL_STORAGE)
         val (a, root) = open("D", "home", music = false)
         a.ck.overlays.gallery(true); settle(); relayout(root); settle()
         assertTrue(texts(root).contains("Выбрать папку…")); assertTrue(texts(root).contains("Через Android…"))
         shot(root, "video-gallery")
         a.ck.overlays.folderPicker(null); settle(); relayout(root); settle()
-        assertTrue("roots listed: ${texts(root)}", texts(root).any { it.contains("Память") || it.contains("Флешка") || it.contains("USB") || it.contains("Накопитель") } || texts(root).contains("Накопители не найдены"))
+        assertTrue("roots listed: ${texts(root)}", texts(root).any { it.contains("Память") || it.contains("Флешка") || it.contains("USB") || it.contains("Накопитель") } || texts(root).any { it.startsWith("Видео не найдено") })
         shot(root, "folders-roots")
         a.ck.overlays.folderPicker(stick.path); settle(); relayout(root); settle()
-        assertTrue(texts(root).containsAll(listOf("Видео", "Музыка", "⬆ Назад")))
+        assertTrue(texts(root).containsAll(listOf("Видео", "⬆ Назад")))
+        assertFalse("v1.7.4: folders without videos are hidden", texts(root).contains("Документы"))
         a.ck.overlays.folderPicker(d.path); settle(); relayout(root); settle()
         repeat(10) { settle(1) }; relayout(root); settle()
         assertTrue("preview tile: ${texts(root)}", all(root).any { it.contentDescription == "Лес" })

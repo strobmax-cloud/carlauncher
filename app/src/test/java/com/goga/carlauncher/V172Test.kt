@@ -115,7 +115,7 @@ class V172Test {
     @Test fun pillsFitTheirTextAndWeatherClearsTheCover() {
         for (st in listOf("D", "C")) for (big in listOf(false, true)) {
             val (_, root) = open(st, "music", big)
-            for (p in all(root).filter { it.contentDescription == "Природа" || it.contentDescription == "Фон" }.filter { it.isShown }) {
+            for (p in all(root).filter { it.contentDescription == "Природа" || it.contentDescription == "Фон" }.filter { it.isShown && rect(it).top < 120 }) {   // top-bar pills (the «Фон» nav tab is below)
                 val f = p as ViewGroup; val row = f.getChildAt(0) as ViewGroup
                 assertTrue("$st $big ${p.contentDescription}: text ${row.width} + padding fits ${f.width}", row.width + f.paddingLeft + f.paddingRight <= f.width + 1)
                 assertTrue("$st $big ${p.contentDescription}: padding ≥ ${p.height / 3}", f.paddingLeft >= p.height / 3)
@@ -143,7 +143,7 @@ class V172Test {
             assertTrue("$m rain/snow", t.contains("Показывать дождь и снег"))
             when (m) {
                 "theme" -> assertTrue(t.contains("Цвет темы"))
-                "cover" -> assertTrue(t.contains("Цвет из обложки трека"))
+                "cover" -> assertTrue(t.contains("Обложка трека на весь экран"))
                 "scene" -> assertTrue(t.contains("Фото"))
                 "video" -> assertTrue(t.contains("Видео"))
             }

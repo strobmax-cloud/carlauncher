@@ -567,7 +567,7 @@ class Overlays(private val ck: Cockpit) {
         add(p, "Цвет", th, W.row(a, "Медленные волны", "Фон темы плавно движется (мало нагружает магнитолу)", W.Toggle(a, K.waves) { K.waves = it; ck.bg.refresh() }, 76, 42))
         val modes = listOf("theme" to "Тема", "cover" to "Обложка", "scene" to "Фото", "video" to "Видео")
         add(p, "Фон",
-            segRow("Что за интерфейсом", "Тема · цвет обложки трека · фото природы по погоде · видео с флешки (${Videos.DIR})", modes, K.bg) { K.bg = it; ck.applyBackground(); ck.build(); refreshSettings() },
+            segRow("Что за интерфейсом", "Тема · обложка трека · фото · видео с флешки (${Videos.DIR})", modes, K.bg) { K.bg = it; ck.applyBackground(); ck.build(); refreshSettings() },
             W.row(a, "Фото природы", Scenes.current().name, null) { gallery() },
             W.row(a, "Видео с флешки", Videos.chosen()?.name ?: "не выбрано · найдено ${Videos.list.size}", null) { gallery(true) },
             W.row(a, "Размытие фото и видео", null, W.Toggle(a, K.blur) { K.blur = it; ck.applyBackground() }, 76, 42),
