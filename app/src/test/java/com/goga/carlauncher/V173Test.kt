@@ -81,19 +81,21 @@ class V173Test {
 
     @Test fun folderBrowserPicksAFolder() {
         val stick = File(ctx.cacheDir, "stick2").apply { deleteRecursively(); mkdirs() }
-        val d = File(stick, "Видео").apply { mkdirs() }; File(d, "nature-лес.mp4").writeBytes(ByteArray(10)); File(stick, "Музыка").mkdirs()
+        val d = File(stick, "Видео").apply { mkdirs() }; File(d, "nature-лес.mp4").writeBytes(ByteArray(10)); File(stick, "Документы").mkdirs()
         shadowOf(ctx).grantPermissions(android.Manifest.permission.READ_EXTERNAL_STORAGE)
         val (a, root) = open("D", "home", music = false)
         a.ck.overlays.gallery(true); settle(); relayout(root); settle()
         assertTrue(texts(root).contains("Выбрать папку…")); assertTrue(texts(root).contains("Через Android…"))
         shot(root, "video-gallery")
         a.ck.overlays.folderPicker(null); settle(); relayout(root); settle()
-        assertTrue("roots listed: ${texts(root)}", texts(root).any { it.contains("Память") || it.contains("Флешка") || it.contains("USB") || it.contains("Накопитель") } || texts(root).contains("Накопители не найдены"))
+        assertTrue("roots listed: ${texts(root)}", texts(root).any { it.contains("Память") || it.contains("Флешка") || it.contains("USB") || it.contains("Накопитель") } || texts(root).any { it.startsWith("Видео не найдено") })
         shot(root, "folders-roots")
         a.ck.overlays.folderPicker(stick.path); settle(); relayout(root); settle()
-        assertTrue(texts(root).containsAll(listOf("Видео", "Музыка", "⬆ Назад")))
+        assertTrue(texts(root).containsAll(listOf("Видео", "⬆ Назад")))
+        assertFalse("v1.7.4: folders without videos are hidden", texts(root).contains("Документы"))
         a.ck.overlays.folderPicker(d.path); settle(); relayout(root); settle()
-        assertTrue(texts(root).contains("Видео в этой папке: 1"))
+        repeat(10) { settle(1) }; relayout(root); settle()
+        assertTrue("preview tile: ${texts(root)}", all(root).any { it.contentDescription == "Лес" })
         shot(root, "folders-pick")
         all(root).filterIsInstance<TextView>().first { it.text == "Выбрать эту папку" }.performClick()
         repeat(20) { settle(1) }; relayout(root); settle()
@@ -146,13 +148,13 @@ class V173Test {
         assertTrue(BgCycle.step(1, false, false).contains(Ck.THEMES[1].name)); assertEquals(Ck.THEMES[1].id, K.theme)
         K.bg = "cover"; BgCycle.step(1, false, false); assertEquals("scene", K.bg)
         K.bg = "theme"; BgCycle.step(1, true, false); assertEquals("C theme → next kind", "cover", K.bg)
-        // Природа on Музыка: arrows around the photo name
-        K.bg = "scene"; K.scene = "auto"
+        // «Фон» tab (v1.7.4, was «Природа»): arrows too
+        K.bg = "scene"; K.scene = "auto"; K.fonKind = "scene"
         val (a, root) = open("D", "music")
-        all(root).first { it.contentDescription == "Природа" && it.isShown }.performClick(); settle(); relayout(root); settle()
+        a.ck.show(2); settle(); relayout(root); settle(); a.ck.fonTouch(); settle()
         all(root).first { it.contentDescription == "Следующий фон" && it.isShown }.performClick(); settle()
         assertEquals(Scenes.ALL[0].id, K.scene)
-        shot(root, "arrows-nature")
+        shot(root, "arrows-fon")
     }
 
     // ---------------- 4. «Телефон» ----------------

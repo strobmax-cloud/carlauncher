@@ -68,7 +68,7 @@ object Stations {
 
 /**
  * v1.7.1 main interface (approved mockup /workspace/car-design, styles C «Линза» and D «Стекло»). Two screens:
- * 0 Главная, 1 Музыка (+ «Природа» full-screen mode of Музыка). Everything is placed in design px on a 1280×720 [Stage].
+ * 0 Главная, 1 Музыка, 2 Фон (v1.7.4: full-screen photo / video + minimal music). Everything is placed in design px on a 1280×720 [Stage].
  */
 @SuppressLint("SetTextI18n", "ClickableViewAccessibility")
 class Cockpit(val a: MainActivity) {
@@ -84,7 +84,8 @@ class Cockpit(val a: MainActivity) {
     private val volo = FrameLayout(a)
     private lateinit var toast: TextView
     var screen = 0; private set
-    var nature = false; private set
+    /** v1.7.4: screen 2 = «Фон» (replaces the «Природа» mode of Музыка): full-screen photo / video + minimal music */
+    val fon get() = screen == 2
     val overlays = Overlays(this)
 
     // live views (rebuilt with the page)
@@ -147,7 +148,7 @@ class Cockpit(val a: MainActivity) {
         }
         st.addView(toast, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM).apply { bottomMargin = 110 })
         CkToast.sink = { showToast(it) }
-        screen = when (K.startScreen) { "music" -> 1; "last" -> K.lastScreen.coerceIn(0, 1); else -> 0 }
+        screen = when (K.startScreen) { "music" -> 1; "fon" -> 2; "last" -> K.lastScreen.coerceIn(0, 2); else -> 0 }
         tilePage = K.tilePage
         np = try { Np.now(a) } catch (_: Throwable) { np }
         setupSwipe()
@@ -178,13 +179,13 @@ class Cockpit(val a: MainActivity) {
     fun onStorage() { if (K.bg == "video") applyBackground(); checkLow(); overlays.storageChanged() }
 
     /** HOME key / «Главная»: close everything, show the home screen */
-    fun home() { overlays.closeAll(); editing = false; nature = false; show(0) }
-    fun back(): Boolean = overlays.back() || (editing.also { if (it) { editing = false; build() } }) || (nature.also { if (it) { nature = false; build() } })
+    fun home() { overlays.closeAll(); editing = false; show(0) }
+    fun back(): Boolean = overlays.back() || (editing.also { if (it) { editing = false; build() } }) || (fon.also { if (it) show(1) })
 
     fun show(s: Int) {
         val changed = s != screen
-        screen = s; K.lastScreen = s
-        if (changed || nature) { nature = false }
+        screen = s.coerceIn(0, 2); K.lastScreen = screen
+        if (changed) { fonShown = true }
         applyBackground(); build()
     }
 
@@ -194,26 +195,25 @@ class Cockpit(val a: MainActivity) {
     // ------------------------------------------------------------------ background
     fun applyBackground() { try { applyBackgroundInner() } catch (t: Throwable) { CrashLog.soft(t) } }
     private fun applyBackgroundInner() {
-        bg.music = screen == 1; bg.nature = nature
-        val mode = if (nature) "scene" else bg.mode()
-        val photo = mode == "scene" || mode == "video"
+        bg.music = screen == 1; bg.fon = fon
+        val mode = bg.mode()
+        val photo = mode == "scene" || mode == "video" || mode == "cover"
         W.photoBehind = photo
-        val vf = if (nature) null else if (K.bg == "video") Videos.chosen() else null
+        // v1.7.4: a video plays wherever the CURRENT screen's background is a video (also on «Фон»)
+        val vf = if (mode == "video") Videos.chosen() else null
         if (vf != null) {
             if (video == null) { video = VideoBg(a).also { v -> v.onFail = { a.runOnUiThread { showToast("Видео не воспроизводится — показываю фото"); st.removeView(v); video = null } }; st.addView(v, 1, FrameLayout.LayoutParams(Ck.W, Ck.H)) } }
             video?.file = vf
         } else if (video != null) { video?.release(); st.removeView(video); video = null }
-        if (nature && K.bg != "scene") { /* nature always shows the weather photo */ }
         bg.refresh()
-        if (nature) bg.post { bg.refresh() }
         updParticles()
     }
     private fun updParticles() {
-        particles.kind = fxKind(nature || bg.mode() == "scene" || bg.mode() == "video")
-        // brightness veil (not for photos: their brightness is in the picture)
-        val md = if (nature) "scene" else bg.mode()
+        val md = bg.mode()
+        particles.kind = fxKind(md == "scene" || md == "video" || md == "cover")
+        // brightness veil (not for photos / covers: their brightness is in the picture)
         val b = K.bright
-        if (md == "scene") dim.setBackgroundColor(0)
+        if (md == "scene" || md == "cover") dim.setBackgroundColor(0)
         else if (md == "video") dim.setBackgroundColor(Color.argb(Math.round((100 - b) / 100f * 0.85f * 255), 0, 0, 0))
         else if (b < 80) dim.setBackgroundColor(Color.argb(Math.round((80 - b) / 50f * 0.6f * 255).coerceIn(0, 255), 0, 0, 0))
         else dim.setBackgroundColor(Color.argb(Math.round((b - 80) / 20f * 0.14f * 255), 255, 255, 255))
@@ -222,6 +222,8 @@ class Cockpit(val a: MainActivity) {
     companion object {
         /** hold time at the edge before a dragged tile flips to the next / previous page */
         const val FLIP_MS = 600L
+        /** «Фон»: the controls hide after this long without a touch */
+        const val FON_HIDE_MS = 6000L
         fun fxKind(photo: Boolean): String {
             if (!K.particles) return "none"
             if (!K.fxAuto) return if (K.fxKind == "rain" || K.fxKind == "snow") K.fxKind else "none"
@@ -234,14 +236,15 @@ class Cockpit(val a: MainActivity) {
     // ------------------------------------------------------------------ gestures
     private fun setupSwipe() {
         val gd = GestureDetector(a, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onSingleTapConfirmed(e: MotionEvent): Boolean { if (fon) { fonTouch(); return true }; return false }
             override fun onFling(e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float): Boolean {
                 if (e1 == null || editing || overlays.open) return false
                 val dx = e2.x - e1.x; val dy = e2.y - e1.y
                 if (Math.abs(dx) > 160 && Math.abs(dx) > Math.abs(dy) * 1.6f) {
                     // tiles row swipes pages, elsewhere screens
                     if (e1.y in tileTop..tileBottom && tilePages > 1) { pageTiles(if (dx < 0) 1 else -1); return true }
-                    if (dx < 0 && screen == 0) { show(1); return true }
-                    if (dx > 0 && screen == 1) { show(0); return true }
+                    if (dx < 0 && screen < 2) { show(screen + 1); return true }
+                    if (dx > 0 && screen > 0) { show(screen - 1); return true }
                 }
                 return false
             }
@@ -277,8 +280,8 @@ class Cockpit(val a: MainActivity) {
         glows.clear(); lens = null; eq = null; gauge = null; clockTv = null; dateTv = null; speedTv = null; npTitle = null; npArtist = null; npCap = null; npCover = null
         playBtn = null; seek = null; tPos = null; tDur = null; wxIcon = null; wxTemp = null; wxPlace = null; lowStrip = null
         page.put(swipeLayer(), 0, 0, Ck.W, Ck.H)
-        if (nature) buildNature() else if (Ck.isC) buildC() else buildD()
-        if (!nature) checkLow()
+        if (fon) buildFon() else if (Ck.isC) buildC() else buildD()
+        if (!fon) checkLow()
         updAll()
     }
 
@@ -320,7 +323,6 @@ class Cockpit(val a: MainActivity) {
     private fun topBar(music: Boolean, clock: Boolean) {
         val row = W.hbox(a)
         val ph = if (big()) 54 else 50
-        if (music) row.addView(W.pill(a, "mtn", "Природа", ph) { nature = true; applyBackground(); build() }, lin(W.WR, ph).apply { rightMargin = 12 })
         // v1.7.3: ◀ Фон ▶ — next / previous background of the current kind right from the screen
         row.addView(bgArrow(-1, ph), lin(ph + 8, ph).apply { rightMargin = 6 })
         row.addView(W.pill(a, "layers", "Фон", ph, overlays.isBgPanel()) { overlays.bgPanel() }, lin(W.WR, ph).apply { rightMargin = 6 })
@@ -344,8 +346,8 @@ class Cockpit(val a: MainActivity) {
             val bw = if (bigk) 200 else 180; val bh = if (bigk) 72 else 66
             val row = W.hbox(a)
             if (W.photoBehind) row.background = Panel(0x80060810.toInt(), 0x14FFFFFF, 1f, floatArrayOf(24f, 24f, 24f, 24f), false)
-            listOf("home" to "Главная", "note" to "Музыка").forEachIndexed { i, (ic, n) ->
-                val on = i == screen && !nature
+            TABS.forEachIndexed { i, (ic, n) ->
+                val on = i == screen
                 val b = FrameLayout(a)
                 val r = W.hbox(a).apply { gravity = Gravity.CENTER }
                 r.addView(Ck.icon(a, "c_$ic", if (on) Color.WHITE else 0x73FFFFFF), lin(if (bigk) 32 else 28, if (bigk) 32 else 28))
@@ -353,8 +355,8 @@ class Cockpit(val a: MainActivity) {
                 b.addView(r, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
                 if (on) b.addView(View(a).apply { setBackgroundColor(accent()) }, FrameLayout.LayoutParams(bw - 68, 2, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin = 6 })
                 b.contentDescription = n
-                Ck.pressable(b) { if (i == 0) home() else show(1) }
-                row.addView(b, lin(bw, bh).apply { if (i == 1) leftMargin = 8 })
+                Ck.pressable(b) { if (i == 0) home() else show(i) }
+                row.addView(b, lin(bw, bh).apply { if (i > 0) leftMargin = 8 })
             }
             page.addView(row, FrameLayout.LayoutParams(-2, bh, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin = 8 })
             val vw = if (bigk) 80 else 70; val vh = if (bigk) 70 else 62; val vy = if (bigk) 636 else 640
@@ -363,16 +365,16 @@ class Cockpit(val a: MainActivity) {
         } else {
             val bw = if (bigk) 180 else 150; val bh = if (bigk) 78 else 72
             val row = W.hbox(a)
-            listOf("home" to "Главная", "note" to "Музыка").forEachIndexed { i, (ic, n) ->
-                val on = i == screen && !nature
+            TABS.forEachIndexed { i, (ic, n) ->
+                val on = i == screen
                 val col = W.vbox(a).apply { gravity = Gravity.CENTER_HORIZONTAL }
                 col.addView(Ck.icon(a, ic, if (on) Color.WHITE else 0x9EFFFFFF.toInt()), lin(if (bigk) 32 else 28, if (bigk) 32 else 28).apply { gravity = Gravity.CENTER_HORIZONTAL; topMargin = 8 })
                 col.addView(t(if (bigk) 22f else 18f, if (on) Color.WHITE else 0x9EFFFFFF.toInt(), on, g = Gravity.CENTER).apply { text = n }, lin(W.M, W.WR).apply { topMargin = 4 })
                 val f = FrameLayout(a); f.addView(col, FrameLayout.LayoutParams(-1, -1))
                 if (on) f.addView(View(a).apply { background = Panel(accent(), 0, 0f, floatArrayOf(2f, 2f, 2f, 2f), false).apply { glow = accent() } }, FrameLayout.LayoutParams(bw - 96, 3, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL))
                 f.contentDescription = n
-                Ck.pressable(f) { if (i == 0) home() else show(1) }
-                row.addView(f, lin(bw, bh).apply { if (i == 1) leftMargin = 10 })
+                Ck.pressable(f) { if (i == 0) home() else show(i) }
+                row.addView(f, lin(bw, bh).apply { if (i > 0) leftMargin = 10 })
             }
             page.addView(row, FrameLayout.LayoutParams(-2, bh, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin = 6 })
             val s = if (bigk) 74 else 64; val y = 720 - 16 - s
@@ -381,6 +383,7 @@ class Cockpit(val a: MainActivity) {
         }
     }
 
+    private val TABS = listOf("home" to "Главная", "note" to "Музыка", "img" to "Фон")
     private fun volBtn(up: Boolean, x: Int, y: Int, w: Int, hh: Int, glass: Boolean) {
         val f = FrameLayout(a)
         if (glass) f.background = Panel(0x24FFFFFF, 0x40FFFFFF, 1.2f, floatArrayOf(w / 2f, w / 2f, w / 2f, w / 2f), true)
@@ -448,7 +451,7 @@ class Cockpit(val a: MainActivity) {
     // ---- low storage strip (ours): dismissable for 3 days, never over the controls, opens «Память и очистка» ----
     fun checkLow() {
         lowStrip?.let { page.removeView(it) }; lowStrip = null
-        if (nature || editing || System.currentTimeMillis() < K.lowHideUntil) return
+        if (fon || editing || System.currentTimeMillis() < K.lowHideUntil) return
         AppRepo.exec.execute {
             val w = try { Storage.all(a).filter { it.low }.minByOrNull { it.freeFraction } } catch (_: Throwable) { null }
             h.post {
@@ -542,7 +545,7 @@ class Cockpit(val a: MainActivity) {
                 b.addView(Ck.icon(a, ic), lin(if (bigk) 34 else 30, if (bigk) 34 else 30))
                 b.addView(t(if (bigk) 19f else 18f, Color.WHITE, true, g = Gravity.CENTER).apply { text = n }, lin(W.M, -2).apply { topMargin = 6 })
                 b.contentDescription = n
-                Ck.pressable(b) { pickSource(k) }
+                Ck.pressable(b, if (k == "radio") ({ radioChoose(true) }) else null) { pickSource(k) }
                 srcBtns[k] = b
                 src.addView(b, lin(0, W.M, 1f))
             }
@@ -631,7 +634,7 @@ class Cockpit(val a: MainActivity) {
             f.rotation = if (index % 2 == 0) -1.2f else 1.2f
             dragToReorder(f, index)
         } else {
-            Ck.pressable(f, { editing = true; build() }) { if (!CkTiles.open(a, o)) { if (o.kind == "apps") overlays.allApps() else overlays.settings() } }
+            Ck.pressable(f, { editing = true; build() }) { if (o.kind == "radio") radioChoose(false, fromTile = true) else if (!CkTiles.open(a, o)) { if (o.kind == "apps") overlays.allApps() else overlays.settings() } }
         }
         page.put(f, x, y, w, hh)
     }
@@ -788,7 +791,9 @@ class Cockpit(val a: MainActivity) {
             val gl = CoverGlow(a); glows.add(gl); page.put(gl, 100 - 190, 104 - 170, 366 + 380, 366 + 340)
             npCover = cv; page.put(cv, 100, 104, 366, 366)
             Ck.pressable(cv, { overlays.sourceMenu() }) { openPlayer() }
-            val ttl = t(if (bigk) 48f else 44f, Color.WHITE, true, 2); npTitle = ttl; page.put(ttl, 540, 104, 670, if (bigk) 112 else 104)
+            // v1.7.4: which app plays (RadioDroid / Яндекс Музыка / Телефон …) — small line above the title
+            val cap = t(17f, accent(), true).apply { letterSpacing = 0.06f }; npCap = cap; page.put(cap, 542, 86, 660, 24)
+            val ttl = t(if (bigk) 48f else 44f, Color.WHITE, true, 2); npTitle = ttl; page.put(ttl, 540, 110, 670, if (bigk) 106 else 98)
             val ar = t(if (bigk) 26f else 24f, 0x9EFFFFFF.toInt()); npArtist = ar; page.put(ar, 540, if (bigk) 218 else 210, 670, 34)
             val pr = W.round(a, "pb_prev", 104, 36) { cmd(KeyEvent.KEYCODE_MEDIA_PREVIOUS) }
             val pp = W.round(a, "pb_play", 130, 48, true) { cmd(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) }; playBtn = pp; playIcons = "pb_play" to "pb_pause"
@@ -800,7 +805,7 @@ class Cockpit(val a: MainActivity) {
                 val b = W.hbox(a).apply { gravity = Gravity.CENTER; setPadding(18, 0, 22, 0) }
                 b.addView(Ck.icon(a, ic, 0xCCFFFFFF.toInt()), lin(24, 24)); b.addView(t(20f, Color.WHITE).apply { text = n }, lin(-2, -2).apply { leftMargin = 10 })
                 b.contentDescription = n
-                Ck.pressable(b) { pickSource(k) }
+                Ck.pressable(b, if (k == "radio") ({ radioChoose(true) }) else null) { pickSource(k) }
                 srcBtns[k] = b
                 row.addView(b, lin(-2, 54).apply { rightMargin = 12 })
             }
@@ -892,35 +897,66 @@ class Cockpit(val a: MainActivity) {
     }
     /** v1.7.3: the arrows: next / previous photo, video, theme (persisted) */
     fun bgStep(dir: Int) {
-        val name = BgCycle.step(dir, Ck.isC, nature)
+        val name = BgCycle.step(dir, Ck.isC, fon)
         applyBackground(); build(); showToast(name)
     }
-    private fun buildNature() {
-        weather(40, 30, compact = true)
-        val ct = (if (Ck.isC) orb(44f) else t(44f).apply { typeface = Ck.sansL }); clockTv = ct
-        page.addView(ct, FrameLayout.LayoutParams(-2, -2, Gravity.END or Gravity.TOP).apply { rightMargin = 40; topMargin = 30 })
-        val sc = W.pill(a, "img", Scenes.current().name, 50) { overlays.gallery() }
-        val scRow = W.hbox(a).apply { gravity = Gravity.CENTER_VERTICAL }
-        scRow.addView(bgArrow(-1, 50), lin(58, 50).apply { rightMargin = 8 }); scRow.addView(sc, lin(W.WR, 50)); scRow.addView(bgArrow(1, 50), lin(58, 50).apply { leftMargin = 8 })
-        page.addView(scRow, FrameLayout.LayoutParams(-2, 50, Gravity.CENTER_HORIZONTAL or Gravity.TOP).apply { topMargin = 30 })
-        val ttl = t(46f, Color.WHITE, true, 1, Gravity.CENTER).apply { setShadowLayer(14f, 0f, 2f, 0x99000000.toInt()); if (Ck.isC) typeface = Ck.juraB }
-        npTitle = ttl; page.put(ttl, 140, 300, 1000, 60)
-        val ar = t(24f, 0xE6FFFFFF.toInt(), false, 1, Gravity.CENTER).apply { setShadowLayer(10f, 0f, 2f, 0x99000000.toInt()) }
-        npArtist = ar; page.put(ar, 140, 362, 1000, 34)
-        fun nb(icon: String, s: Int, isz: Int, glow: Boolean, code: Int): FrameLayout {
-            val f = FrameLayout(a); f.background = Panel(0x3D000000, if (glow) accent() else 0x59FFFFFF, if (glow) 3f else 1f, floatArrayOf(s / 2f, s / 2f, s / 2f, s / 2f), false).apply { if (glow) this.glow = accent() }
-            val iv = Ck.icon(a, icon); iv.tag = "icon"; f.addView(iv, FrameLayout.LayoutParams(isz, isz, Gravity.CENTER)); f.contentDescription = icon
-            Ck.pressable(f) { cmd(code) }; return f
+    /**
+     * v1.7.4 «Фон»: the chosen photo or video full screen, the least possible interface: a small clock, a thin
+     * «title — artist» line with ⏮ ⏯ ⏭ (no cover), and — shown on a tap, hidden after a few seconds — photo / video,
+     * ◀ ▶, «Выбрать…» and rain / snow.
+     */
+    private var fonShown = true
+    private var fonCtl: View? = null
+    private val fonHide = Runnable { fonCtl?.animate()?.alpha(0f)?.setDuration(400)?.withEndAction { fonCtl?.visibility = View.INVISIBLE }?.start(); fonShown = false }
+    fun fonTouch() {
+        val c = fonCtl ?: return
+        h.removeCallbacks(fonHide)
+        c.animate().cancel(); c.visibility = View.VISIBLE; c.alpha = 1f; fonShown = true
+        h.postDelayed(fonHide, FON_HIDE_MS)
+    }
+    private fun buildFon() {
+        val ct = (if (Ck.isC) orb(34f) else t(34f).apply { typeface = Ck.sansL }).apply { setShadowLayer(10f, 0f, 2f, 0x99000000.toInt()) }; clockTv = ct
+        page.addView(ct, FrameLayout.LayoutParams(-2, -2, Gravity.END or Gravity.TOP).apply { rightMargin = 40; topMargin = 26 })
+        // ---- controls (auto-hide) ----
+        val ctl = FrameLayout(a); fonCtl = ctl
+        val left = W.hbox(a).apply { gravity = Gravity.CENTER_VERTICAL }
+        val ph = 46
+        left.addView(bgArrow(-1, ph), lin(ph + 6, ph).apply { rightMargin = 8 })
+        val kinds = listOf("scene" to "Фото", "video" to "Видео")
+        left.addView(W.seg(a, kinds.map { it.second }, if (K.fonKind == "video") 1 else 0, ph, 18f) { i ->
+            val k = kinds[i].first
+            if (k == "video" && Videos.list.isEmpty()) { showToast("Видео не найдено — выберите папку"); overlays.folderPicker(null); return@seg }
+            K.fonKind = k; applyBackground(); build()
+        }, lin(W.WR, ph))
+        left.addView(bgArrow(1, ph), lin(ph + 6, ph).apply { leftMargin = 8 })
+        left.addView(W.pill(a, if (K.fonKind == "video") "folder" else "img", "Выбрать", ph) { if (K.fonKind == "video") overlays.gallery(true) else overlays.gallery() }, lin(W.WR, ph).apply { leftMargin = 12 })
+        ctl.put(left, 40, 26, 700, ph)
+        val fx = listOf("auto" to "По погоде", "rain" to "Дождь", "snow" to "Снег", "off" to "Выкл")
+        val cur = if (!K.particles) "off" else if (K.fxAuto) "auto" else K.fxKind
+        val fxRow = W.hbox(a).apply { gravity = Gravity.CENTER_VERTICAL }
+        fxRow.addView(Ck.icon(a, Wx.icon(), 0xCCFFFFFF.toInt()), lin(26, 26).apply { rightMargin = 10 })
+        fxRow.addView(W.seg(a, fx.map { it.second }, fx.indexOfFirst { it.first == cur }.coerceAtLeast(0), ph, 17f) { i ->
+            when (val k = fx[i].first) { "off" -> K.particles = false; "auto" -> { K.particles = true; K.fxAuto = true }; else -> { K.particles = true; K.fxAuto = false; K.fxKind = k } }
+            refreshFx(); build()
+        }, lin(W.WR, ph))
+        ctl.addView(fxRow, FrameLayout.LayoutParams(-2, ph, Gravity.TOP or Gravity.END).apply { topMargin = 26; rightMargin = 170 })
+        page.put(ctl, 0, 0, Ck.W, 100)
+        // ---- now playing: one thin line, no cover ----
+        val bar = W.hbox(a).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(10, 0, 22, 0); background = Panel(0x8C060810.toInt(), 0x1FFFFFFF, 1f, floatArrayOf(30f, 30f, 30f, 30f), false) }
+        fun nb(icon: String, s: Int, isz: Int, code: Int): FrameLayout {
+            val f = FrameLayout(a); val iv = Ck.icon(a, icon); iv.tag = "icon"; f.addView(iv, FrameLayout.LayoutParams(isz, isz, Gravity.CENTER)); f.contentDescription = icon
+            Ck.pressable(f) { cmd(code); fonTouch() }; return f
         }
-        page.put(nb("pb_prev", 88, 34, false, KeyEvent.KEYCODE_MEDIA_PREVIOUS), 640 - 55 - 40 - 88, 420, 88, 88)
-        val pp = nb("pb_play", 110, 44, true, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE); playBtn = pp; playIcons = "pb_play" to "pb_pause"; page.put(pp, 640 - 55, 409, 110, 110)
-        page.put(nb("pb_next", 88, 34, false, KeyEvent.KEYCODE_MEDIA_NEXT), 640 + 55 + 40, 420, 88, 88)
-        if (np.src != "radio") {
-            val tp = t(20f, Color.WHITE).apply { setShadowLayer(8f, 0f, 1f, 0x99000000.toInt()) }; tPos = tp; page.put(tp, 300, 548, 70, 30)
-            val sk = SeekCk(a) { seekTo(it) }; seek = sk; page.put(sk, 370, 546, 540, 34)
-            val td = t(20f, Color.WHITE, g = Gravity.END or Gravity.CENTER_VERTICAL).apply { setShadowLayer(8f, 0f, 1f, 0x99000000.toInt()) }; tDur = td; page.put(td, 910, 548, 70, 30)
-        }
+        bar.addView(nb("pb_prev", 52, 24, KeyEvent.KEYCODE_MEDIA_PREVIOUS), lin(52, 52))
+        val pp = nb("pb_play", 56, 28, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE); playBtn = pp; playIcons = "pb_play" to "pb_pause"; bar.addView(pp, lin(56, 56))
+        bar.addView(nb("pb_next", 52, 24, KeyEvent.KEYCODE_MEDIA_NEXT), lin(52, 52))
+        val ttl = t(22f, Color.WHITE, true); npTitle = ttl; bar.addView(ttl, lin(W.WR, W.WR).apply { leftMargin = 14 })
+        val ar = t(20f, 0xB3FFFFFF.toInt()); npArtist = ar; bar.addView(ar, lin(W.WR, W.WR).apply { leftMargin = 10 })
+        ttl.maxWidth = 520; ar.maxWidth = 300; ttl.ellipsize = android.text.TextUtils.TruncateAt.END; ar.ellipsize = android.text.TextUtils.TruncateAt.END
+        Ck.pressable(bar, { overlays.sourceMenu() }) { fonTouch() }
+        page.addView(bar, FrameLayout.LayoutParams(-2, 60, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin = (if (big()) 78 else 72) + 18 })
         bottom()
+        if (fonShown) { h.removeCallbacks(fonHide); h.postDelayed(fonHide, FON_HIDE_MS) } else { ctl.visibility = View.INVISIBLE; ctl.alpha = 0f }
     }
 
     // ================================================================== data → views
@@ -966,7 +1002,8 @@ class Cockpit(val a: MainActivity) {
             npCap?.text = "● " + when (n.src) { "radio" -> "РАДИО · " + (Radio.freq ?: "FM"); "phone" -> "ТЕЛЕФОН · BT"; "music" -> (n.pkg?.let { Tiles.label(a, it) } ?: "Музыка").uppercase(Locale("ru")); else -> "ИСТОЧНИК НЕ ВЫБРАН" }
             playBtn?.let { W.setIcon(it, if (n.playing) playIcons.second else playIcons.first) }
             for ((k, v) in srcBtns) {
-                val on = k == n.src || (k == "music" && n.src == "none" && false)
+                // v1.7.4: lit = what really plays (RadioDroid lights «Радио», another player lights nothing)
+                val on = when (k) { "radio" -> n.src == "radio" || (n.src == "music" && MediaHub.isNetRadio(n.pkg)); "music" -> n.src == "music" && n.pkg == MediaHub.YANDEX; else -> k == n.src }
                 if (Ck.isC) { v.background = if (on) Panel(Ck.alpha(accent(), .14f), 0, 0f, floatArrayOf(16f, 16f, 16f, 16f), false) else null; v.alpha = if (on) 1f else .62f }
                 else v.background = if (on) Panel(Ck.alpha(accent(), .22f), accent(), 1.6f, floatArrayOf(27f, 27f, 27f, 27f), false).apply { glow = accent() } else Panel(0x1AFFFFFF, 0x33FFFFFF, 1.2f, floatArrayOf(27f, 27f, 27f, 27f), false)
             }
@@ -1007,9 +1044,10 @@ class Cockpit(val a: MainActivity) {
         art = b?.let { try { ArtLoader.scale(it, 512) } catch (_: Throwable) { it } }
         val col = art?.let { try { CoverColor.pick(it) } catch (_: Throwable) { null } } ?: 0
         val prev = Ck.coverColor
-        Ck.coverColor = col
+        val prevArt = Ck.coverArt
+        Ck.coverColor = col; Ck.coverArt = art
         showArt()
-        if (K.bg == "cover" && col != prev) { h.removeCallbacks(coverRebuild); h.postDelayed(coverRebuild, 400) }
+        if (K.bg == "cover" && (col != prev || prevArt !== art)) { h.removeCallbacks(coverRebuild); h.postDelayed(coverRebuild, 400) }
     }
     private val coverRebuild = Runnable { if (!editing && !overlays.open) { bg.refresh(); build() } else bg.refresh() }
     private fun showArt() {
@@ -1042,11 +1080,32 @@ class Cockpit(val a: MainActivity) {
         val mc = MediaHub.current ?: return
         if (np.dur > 0) try { mc.transportControls.seekTo((np.dur * f).toLong()) } catch (_: Throwable) {}
     }
+    /** a player by package: its session → play (stay here); no session yet → open it, press Play when it is up */
+    private fun playApp(p: String) {
+        val s = MediaHub.all.firstOrNull { it.packageName == p }
+        if (s != null) { MediaHub.pin(p); try { s.transportControls.play() } catch (_: Throwable) {}; showToast(Tiles.label(a, p)) }
+        else { AppRepo.launch(a, p); MediaHub.playWhenReady(a, p) }
+    }
+    /**
+     * v1.7.4 «Радио»: FM of the unit (works without internet) or internet radio (RadioDroid, only if installed).
+     * Asks unless a choice was remembered; [ask] = always ask (long press).
+     */
+    fun radioChoose(ask: Boolean, fromTile: Boolean = false) {
+        val net = Tiles.installed(a, MediaHub.RADIODROID)
+        val c = if (!net) "fm" else if (ask) "ask" else K.radioChoice
+        when (c) {
+            "fm" -> { pickSource("fm"); if (fromTile) show(1) }
+            "net" -> radioNet(fromTile)
+            else -> overlays.radioChooser(fromTile)
+        }
+    }
+    fun radioNet(fromTile: Boolean) { if (Radio.muted && Syu.vol(-4)) Radio.muted = false; playApp(MediaHub.RADIODROID); if (fromTile) show(1) }
     /** source switch (Радио / Я.Музыка / Телефон) */
     fun pickSource(k: String) {
         if (k != "radio" && Radio.muted) { if (Syu.vol(-4)) Radio.muted = false }
         when (k) {
-            "radio" -> {
+            "radio" -> radioChoose(false)
+            "fm" -> {
                 // v1.7.2: just select the radio (tuner becomes the source), stay on our screen
                 if (Radio.select(a)) showToast("Радио" + (Radio.freq?.let { " · $it" } ?: ""))
                 else {
@@ -1055,11 +1114,11 @@ class Cockpit(val a: MainActivity) {
                 }
             }
             "music" -> {
-                val s = MediaHub.all.firstOrNull { !MediaHub.isPhone(a, it.packageName) && !MediaHub.isRadio(a, it.packageName) }
-                if (s != null) { MediaHub.pin(s.packageName); try { s.transportControls.play() } catch (_: Throwable) {} }
+                // v1.7.4: «Я.Музыка» = Яндекс Музыка by its package, never «the last player» (RadioDroid took its place in 1.7.3)
+                if (Tiles.installed(a, MediaHub.YANDEX)) playApp(MediaHub.YANDEX)
                 else {
-                    val p = listOf("ru.yandex.music").firstOrNull { Tiles.installed(a, it) } ?: Nav.musicApp(a, null)
-                    if (p != null) { AppRepo.launch(a, p); MediaHub.playWhenReady(a, p) } else showToast("Музыкальное приложение не найдено")
+                    val p = Nav.musicApp(a, null)?.takeIf { !MediaHub.isNetRadio(it) }
+                    if (p != null) playApp(p) else showToast("Яндекс Музыка не установлена")
                 }
             }
             "phone" -> {
