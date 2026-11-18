@@ -17,7 +17,7 @@ import com.goga.carlauncher.Ui.u
  * Pictures appear in the gallery strip immediately; the newest one becomes the wallpaper.
  * The server stops when the window is closed or after 10 minutes.
  */
-class UploadDialog(private val a: ClassicActivity, private val onClosed: () -> Unit) {
+class UploadDialog(private val a: android.app.Activity, private val onClosed: () -> Unit) {
     private val h = Handler(Looper.getMainLooper())
     private var server: UploadServer? = null
     private var dialog: Dialog? = null
@@ -58,8 +58,8 @@ class UploadDialog(private val a: ClassicActivity, private val onClosed: () -> U
         changed = true
         if (added != null) {
             Prefs.wallpaper = added
-            a.wallpaperChanged()
-            status.text = "Получено: ${server?.received ?: 0} — новая картинка уже на экране"
+            onClosed()
+            status.text = "Получено: ${server?.received ?: 0}"
         }
         fillStrip()
     }
@@ -74,7 +74,7 @@ class UploadDialog(private val a: ClassicActivity, private val onClosed: () -> U
         else qrBox.addView(Ui.text(a, 20, 0xFF3A3A3C.toInt(), Ui.MEDIUM, 4).apply { text = "Нет сети Wi-Fi"; gravity = Gravity.CENTER }, FrameLayout.LayoutParams(Ui.MATCH, Ui.MATCH))
         top.addView(qrBox, Ui.lin(u(330), u(330)))
         val col = Ui.vbox(a).apply { setPadding(u(32), u(4), 0, 0) }
-        col.addView(Ui.text(a, 34, Ui.TEXT, Ui.BOLD).apply { text = "Обои с телефона" })
+        col.addView(Ui.text(a, 34, Ui.TEXT, Ui.BOLD).apply { text = "С телефона по Wi‑Fi" })
         fun step(n: String, t: String) {
             val r = Ui.hbox(a).apply { gravity = Gravity.TOP }
             r.addView(Ui.text(a, 18, Color.WHITE, Ui.BOLD).apply { text = n; gravity = Gravity.CENTER; background = Ui.oval(Ui.accent) }, Ui.lin(u(32), u(32)))
@@ -86,8 +86,8 @@ class UploadDialog(private val a: ClassicActivity, private val onClosed: () -> U
         col.addView(Ui.text(a, 34, Ui.accent, Ui.BOLD).apply { text = url ?: "— подключите Wi-Fi —"; setTextIsSelectable(false) }, Ui.lin(Ui.WRAP, Ui.WRAP).apply { topMargin = u(10); leftMargin = u(46) })
         if (addrs.size > 1) col.addView(Ui.text(a, 15, Ui.TEXT2, Ui.SANS, 2).apply { text = "Если не открывается: " + addrs.drop(1).joinToString("  ·  ") { "http://$it:$port" } },
             Ui.lin(Ui.WRAP, Ui.WRAP).apply { topMargin = u(4); leftMargin = u(46) })
-        step("3", "Выберите одно или несколько фото — они сразу появятся здесь и станут фоном.")
-        status = Ui.text(a, 18, 0xFF30D158.toInt(), Ui.MEDIUM).apply { text = if (port > 0) "Жду фото…" else "Не удалось открыть порт — перезапустите окно" }
+        step("3", "На телефоне выберите файл CarLauncher-….apk — магнитола проверит, что это ваша сборка (та же подпись), и предложит установить.")
+        status = Ui.text(a, 18, 0xFF30D158.toInt(), Ui.MEDIUM).apply { text = if (port > 0) "Жду файл…" else "Не удалось открыть порт — перезапустите окно" }
         col.addView(status, Ui.lin(Ui.WRAP, Ui.WRAP).apply { topMargin = u(16); leftMargin = u(46) })
         timer = Ui.text(a, 15, Ui.TEXT2).apply { text = "Приём открыт 10:00 — потом сервер выключится сам" }
         col.addView(timer, Ui.lin(Ui.WRAP, Ui.WRAP).apply { topMargin = u(4); leftMargin = u(46) })
@@ -95,11 +95,11 @@ class UploadDialog(private val a: ClassicActivity, private val onClosed: () -> U
         root.addView(top, Ui.lin(Ui.MATCH, Ui.WRAP))
 
         val hdr = Ui.hbox(a)
-        hdr.addView(Ui.text(a, 17, Ui.alpha(Color.WHITE, 0.75f), Ui.BOLD).apply { text = "ГАЛЕРЕЯ · нажмите — сделать фоном, ✕ — удалить"; letterSpacing = 0.04f }, Ui.lin(0, Ui.WRAP, 1f))
+        hdr.addView(Ui.text(a, 17, Ui.alpha(Color.WHITE, 0.75f), Ui.BOLD).apply { text = "" }, Ui.lin(0, Ui.WRAP, 1f))
         hdr.addView(Ui.pill(a, "Готово", Ui.accent) { dialog?.dismiss() }.apply { minHeight = u(56) })
         root.addView(hdr, Ui.lin(Ui.MATCH, Ui.WRAP).apply { topMargin = u(18) })
         strip = Ui.hbox(a).apply { gravity = Gravity.TOP }
-        root.addView(HorizontalScrollView(a).apply { isHorizontalScrollBarEnabled = false; addView(strip) }, Ui.lin(Ui.MATCH, Ui.WRAP).apply { topMargin = u(12) })
+        // v1.7.7: no wallpaper gallery here any more (the new screen has its own «Фон»); photos sent from the phone are only stored
         fillStrip()
         return root
     }
@@ -113,12 +113,12 @@ class UploadDialog(private val a: ClassicActivity, private val onClosed: () -> U
             val f = FrameLayout(a).apply {
                 background = android.graphics.drawable.GradientDrawable().apply { setColor(0x14FFFFFF); cornerRadius = u(14).toFloat(); if (sel) setStroke(u(4), Ui.accent) }
                 setPadding(u(4), u(4), u(4), u(4)); isClickable = true
-                setOnClickListener { Prefs.wallpaper = id; changed = true; a.wallpaperChanged(); fillStrip() }
+                setOnClickListener { Prefs.wallpaper = id; changed = true; onClosed(); fillStrip() }
             }
             val iv = ImageView(a).apply { scaleType = ImageView.ScaleType.CENTER_CROP; setImageBitmap(Wallpaper.thumb(a, id)); Ui.clipRound(this, u(10)) }
             f.addView(iv, FrameLayout.LayoutParams(Ui.MATCH, Ui.MATCH))
             val del = Ui.text(a, 18, Color.WHITE, Ui.BOLD).apply { text = "✕"; gravity = Gravity.CENTER; background = Ui.pressableOval(0x99000000.toInt(), 0xCC000000.toInt()); isClickable = true
-                setOnClickListener { Gallery.delete(a, id); changed = true; a.wallpaperChanged(); fillStrip() } }
+                setOnClickListener { Gallery.delete(a, id); changed = true; onClosed(); fillStrip() } }
             f.addView(del, FrameLayout.LayoutParams(u(40), u(40), Gravity.TOP or Gravity.END).apply { setMargins(0, u(6), u(6), 0) })
             strip.addView(f, Ui.lin(u(196), u(110)).apply { rightMargin = u(12) })
         }

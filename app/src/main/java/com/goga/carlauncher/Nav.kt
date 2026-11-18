@@ -63,7 +63,6 @@ object Nav {
         if (Prefs.navMode == "split") { split(a, MediaHub.current?.packageName, p); return }
         if (!AppRepo.launch(a, p)) return
         if (Prefs.navMusic) MediaHub.resume(a)
-        if (Prefs.navMode == "mini" && Prefs.miniAuto) MiniPlayer.start(a, auto = true)
     }
 
     /**
@@ -86,12 +85,10 @@ object Nav {
         } catch (e: Exception) {
             try { a.startActivity(navI) } catch (_: Exception) { Toast.makeText(a, "Не удалось открыть", Toast.LENGTH_SHORT).show(); return }
         }
-        val mini = MiniPlayer.start(a, auto = false)
         Toast.makeText(a, when {
             musI == null -> "Музыкальное приложение не найдено — открыт только навигатор"
             inMw -> "Открываю ${short(a, nav)} и ${short(a, mus!!)} рядом"
-            mini -> "Если экран не разделился — музыка в мини-плеере поверх навигатора"
-            else -> "Если экран не разделился, включите мини-плеер в Настройках (поверх других окон)"
+            else -> "Если экран не разделился — музыка играет дальше, переключать её можно плавающими кнопками или в Car Launcher"
         }, Toast.LENGTH_LONG).show()
     }
 
@@ -172,7 +169,7 @@ class NavCardView(c: Context, accent: Int, light: Boolean = false, compact: Bool
         col.addView(disc, Ui.lin(Ui.u(isz + 40), Ui.u(isz + 40)))
         title = Ui.text(c, if (compact) 26 else 34, if (light) LightPass.INK else Color.WHITE, Ui.BOLD).apply { text = "Куда едем?"; gravity = android.view.Gravity.CENTER }
         col.addView(title, Ui.lin(Ui.WRAP, Ui.WRAP).apply { topMargin = Ui.u(if (compact) 12 else 20) })
-        val music = when (Prefs.navMode) { "split" -> " · рядом с музыкой"; "mini" -> " · с мини-плеером"; else -> "" }
+        val music = when (Prefs.navMode) { "split" -> " · рядом с музыкой"; else -> "" }
         sub = Ui.text(c, if (compact) 15 else 18, if (light) LightPass.INK2 else Ui.TEXT2, Ui.MEDIUM, 2).apply {
             text = (if (pkg != null) "Открыть " + Nav.name(c, pkg) + music else "Нажмите, чтобы выбрать навигатор"); gravity = android.view.Gravity.CENTER }
         col.addView(sub, Ui.lin(Ui.WRAP, Ui.WRAP).apply { topMargin = Ui.u(6) })

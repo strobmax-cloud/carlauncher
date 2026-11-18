@@ -250,7 +250,7 @@ class CockpitTest {
 
     /** owner's rule: no steering-wheel / key interception, nothing that controls the MCU, the way back stays */
     @Test fun safety() {
-        for (cls in listOf(MainActivity::class.java, ClassicActivity::class.java)) {
+        for (cls in listOf(MainActivity::class.java)) {
             for (m in listOf("onKeyDown", "onKeyUp", "onKeyLongPress", "dispatchKeyEvent", "onKeyMultiple"))
                 assertTrue("${cls.simpleName}.$m must not be overridden", cls.declaredMethods.none { it.name == m })
         }

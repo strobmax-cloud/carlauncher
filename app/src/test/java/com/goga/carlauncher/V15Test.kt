@@ -65,10 +65,6 @@ class V15Test {
         root.measure(View.MeasureSpec.makeMeasureSpec(1280, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(720, View.MeasureSpec.EXACTLY))
         root.layout(0, 0, 1280, 720)
     }
-    private fun start(): Pair<org.robolectric.android.controller.ActivityController<ClassicActivity>, ClassicActivity> {
-        val c = Robolectric.buildActivity(ClassicActivity::class.java).setup(); settle(); relayout(c.get().window.decorView); settle()
-        return c to c.get()
-    }
     private fun all(v: View, out: ArrayList<View> = ArrayList()): ArrayList<View> { if (v.isShown) out.add(v); if (v is ViewGroup) for (k in 0 until v.childCount) all(v.getChildAt(k), out); return out }
     private fun texts(v: View) = all(v).filterIsInstance<TextView>().map { it.text.toString() }
     private fun save(b: Bitmap, name: String) {
@@ -88,68 +84,6 @@ class V15Test {
         // v1.4 «обложка как фон» = off migrates to «Мои обои»
         ctx.getSharedPreferences("cl", 0).edit().putBoolean("coverwp", false).commit()
         assertEquals("wall", Prefs.bgMode); assertFalse(Prefs.coverWallpaper)
-    }
-
-    /** Trip stats are gone for good (1.6); no map views by default, navigator buttons take the space; OSM on: map comes back. */
-    @Test fun tripOffReflowAndNavCard() {
-        installApps()
-        val (ctrl, act) = start()
-        val root = act.window.decorView
-        val tripWords = setOf("ПОЕЗДКА", "В ПУТИ", "МАКС.", "МАКС", "КМ")
-        for (l in Layouts.ALL) {
-            Prefs.layout = l.id; act.rebuild(); settle(2); relayout(root); settle(1)
-            val t = texts(root)
-            assertTrue("${l.id}: no trip captions", t.none { it in tripWords })
-            assertTrue("${l.id}: no map tiles", all(root).none { it is MapTileView })
-            if (l.id in setOf("cockpit", "widgets", "smart", "sport", "premium", "grand"))
-                assertTrue("${l.id}: has one «Навигатор»", t.any { it.startsWith("Навигатор", true) } && t.none { it.equals("Навигатор + музыка", true) })
-            if (l.id in setOf("map", "minimal")) assertTrue("${l.id}: route card instead of the map", all(root).any { it is NavCardView })
-            // nothing may stick out of the content area, and every shown nav button must have a real size
-            for (v in all(root)) if (v is TextView && v.isShown && v.text.toString().startsWith("Навигатор")) {
-                val loc = IntArray(2); v.getLocationInWindow(loc)
-                assertTrue("${l.id}: nav button inside screen", loc[0] >= 0 && loc[1] >= 0 && loc[0] + v.width <= 1280 && loc[1] + v.height <= 720)
-                assertTrue("${l.id}: nav button visible size", v.width > 40 && v.height > 10)
-            }
-        }
-        // cockpit: the nav row fills the place of the trip cards (bottom edge = media column bottom)
-        Prefs.layout = "cockpit"; act.rebuild(); settle(2); relayout(root)
-        Prefs.showOsmMap = true
-        for (id in listOf("map", "minimal")) {
-            Prefs.layout = id; act.rebuild(); settle(2); relayout(root)
-            assertTrue("$id: OSM map back when enabled", all(root).any { it is MapTileView })
-        }
-        ctrl.pause().stop().destroy()
-    }
-
-    @Test fun navButtonsAndSplit() {
-        installApps()
-        Prefs.layout = "cockpit"
-        val (ctrl, act) = start()
-        val root = act.window.decorView
-        while (shadowOf(act).nextStartedActivity != null) {}
-        fun clickNav() { all(root).filterIsInstance<TextView>().first { it.isShown && it.text.toString().startsWith("Навигатор · ") }.let { (it.parent as View).performClick() }; shadowOf(Looper.getMainLooper()).idle() }
-        fun drain(): List<Intent> { val l = ArrayList<Intent>(); var i = shadowOf(act).nextStartedActivity; while (i != null) { l.add(i); i = shadowOf(act).nextStartedActivity }; return l }
-        // 1.7.0: exactly one «Навигатор» entry (default navigator), no extra «Я.Навигатор»/«Навигатор + музыка» tiles
-        val navTexts = texts(root).filter { it.startsWith("Навигатор") || it == "Я.Навигатор" || it == "2ГИС" }
-        println("nav entries: $navTexts")
-        assertTrue("no «Навигатор + музыка»", navTexts.none { it.equals("Навигатор + музыка", true) })
-        Prefs.navDefault = "ru.dublgis.dgismobile"; act.rebuild(); settle(2); relayout(root); drain()
-        Prefs.navMode = "mini"; clickNav()
-        assertTrue("default navigator launched", "ru.dublgis.dgismobile" in drain().map { it.component?.packageName })
-        Prefs.navMode = "split"; clickNav()
-        val started = drain()
-        val pk = started.map { it.component?.packageName }
-        println("split started: $pk")
-        assertTrue("navigator launched", "ru.dublgis.dgismobile" in pk)
-        assertTrue("music launched", "ru.yandex.music" in pk)
-        val navI = started.first { it.component?.packageName == "ru.dublgis.dgismobile" }
-        assertTrue("navigator asked to go adjacent", navI.flags and Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT != 0)
-        Prefs.navMode = "mini"
-        // tile «Навигатор» uses the same path; default navigator wins for the generic card
-        assertEquals("ru.dublgis.dgismobile", Nav.defaultNav(act))
-        Prefs.splitMusic = "com.google.android.youtube"; assertEquals("com.google.android.youtube", Nav.musicApp(act, "ru.yandex.music"))
-        Prefs.splitMusic = ""; assertEquals("ru.yandex.music", Nav.musicApp(act, "ru.yandex.music"))
-        ctrl.pause().stop().destroy()
     }
 
     @Test fun galleryImportDownscalesAndDeletes() {
@@ -244,77 +178,4 @@ class V15Test {
         }
     }
 
-    /** Upload window content + the mini player over a navigator mock, rendered for the preview images. */
-    @Test fun renderUploadAndMiniPlayer() {
-        installApps()
-        Prefs.layout = "cockpit"
-        val (ctrl, act) = start()
-        repeat(3) { Gallery.addBytes(ctx, jpeg(1600, 900)) }
-        val content = UploadDialog(act) {}.buildContent(8080, listOf("192.168.43.57", "10.10.0.2"))
-        val frame = android.widget.FrameLayout(act).apply { background = Ui.round(0xFF1C1C1E.toInt(), 28); setPadding(0, 0, 0, 0) }
-        frame.addView(content)
-        frame.measure(View.MeasureSpec.makeMeasureSpec(1120, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(660, View.MeasureSpec.EXACTLY)); frame.layout(0, 0, 1120, 660)
-        settle(1)
-        val b = Bitmap.createBitmap(1280, 720, Bitmap.Config.ARGB_8888)
-        val cv = Canvas(b); act.window.decorView.draw(cv); cv.drawColor(0xB0000000.toInt())
-        cv.save(); cv.translate(80f, 30f); frame.draw(cv); cv.restore()
-        save(b, "upload")
-
-        // mini player: service with overlay permission + media access
-        ShadowSettings.setCanDrawOverlays(true)
-        Settings.Secure.putString(ctx.contentResolver, "enabled_notification_listeners", ComponentName(ctx, MediaListener::class.java).flattenToString())
-        assertTrue(MiniPlayer.allowed(ctx))
-        val sc = Robolectric.buildService(MiniPlayer::class.java).create().startCommand(0, 1)
-        val mp = sc.get()
-        assertNotNull(MiniPlayer.instance)
-        val root = MiniPlayer::class.java.getDeclaredField("root").apply { isAccessible = true }.get(mp) as View
-        fun f(n: String) = MiniPlayer::class.java.getDeclaredField(n).apply { isAccessible = true }.get(mp)
-        (f("title") as TextView).text = "Ночная трасса"; (f("artist") as TextView).text = "Демо-исполнитель"
-        val cover = android.graphics.BitmapFactory.decodeStream(javaClass.classLoader!!.getResourceAsStream("sample-cover.png"))
-        MiniPlayer::class.java.getDeclaredMethod("setArt", Bitmap::class.java).apply { isAccessible = true }.invoke(mp, ArtLoader.scale(cover, 150))
-        (f("playIv") as android.widget.ImageView).setImageResource(R.drawable.ic_pause)
-        root.visibility = View.VISIBLE
-        val nav = NavArtView(act, Themes.current.accent)
-        nav.measure(View.MeasureSpec.makeMeasureSpec(1280, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(720, View.MeasureSpec.EXACTLY)); nav.layout(0, 0, 1280, 720)
-        root.measure(View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED), View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)); root.layout(0, 0, root.measuredWidth, root.measuredHeight)
-        val m = Bitmap.createBitmap(1280, 720, Bitmap.Config.ARGB_8888); val mc = Canvas(m)
-        nav.draw(mc)
-        val lp = MiniPlayer::class.java.getDeclaredField("lp").apply { isAccessible = true }.get(mp) as android.view.WindowManager.LayoutParams
-        println("mini player at ${lp.x},${lp.y} size ${root.measuredWidth}x${root.measuredHeight}")
-        assertTrue(root.measuredWidth in 300..700)
-        mc.save(); mc.translate(lp.x.toFloat(), lp.y.toFloat()); root.draw(mc); mc.restore()
-        save(m, "miniplayer")
-        // collapse → round bubble, position kept within the screen
-        MiniPlayer::class.java.getDeclaredMethod("setCollapsed", Boolean::class.javaPrimitiveType, Boolean::class.javaPrimitiveType).apply { isAccessible = true }.invoke(mp, true, true)
-        assertTrue(Prefs.miniCollapsed)
-        MiniPlayer.setLauncherInFront(true); assertEquals(View.GONE, root.visibility)
-        sc.destroy(); assertNull(MiniPlayer.instance)
-        ctrl.pause().stop().destroy()
-    }
-
-    /** Full settings page as one tall image (to check the new sections). */
-    @Test fun renderSettingsFull() {
-        installApps()
-        repeat(2) { Gallery.addBytes(ctx, jpeg(1600, 900)) }
-        val (ctrl, act) = start()
-        act.show(3); settle(2); relayout(act.window.decorView)
-        val sv = act.window.decorView.let { all(it).filterIsInstance<android.widget.ScrollView>().first { v -> v.isShown && texts(v).any { t -> t.contains("ВЕРНУТЬ ШТАТНЫЙ ЭКРАН") } } }
-        val body = sv.getChildAt(0)
-        val t = texts(body)
-        for (s in listOf("Загрузить обои с телефона", "Фон при музыке", "Размытая обложка", "Мои обои", "Смена обоев", "Раз в день", "Навигатор по умолчанию",
-                "Мини-плеер поверх навигатора", "Показывать карту OSM", "Выбрать главный экран", "Сменить телефон", "Обновить с телефона", "Проверить обновления",
-                "GitHub / адрес обновлений", "Подсветка под музыку", "Столбики", "Госномер", "Дорога", "Плитка «Камера»", "Цвет акцента", "Где меню", "Кнопки громкости", "ВЕРНУТЬ ШТАТНЫЙ ЭКРАН")) assertTrue("settings has «$s»", t.any { it.contains(s) })
-        assertFalse("no trip stats", t.any { it.contains("поездк") || it.contains("Cobalt") })
-        body.measure(View.MeasureSpec.makeMeasureSpec(sv.width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
-        body.layout(0, 0, body.measuredWidth, body.measuredHeight)
-        val b = Bitmap.createBitmap(body.measuredWidth, body.measuredHeight, Bitmap.Config.ARGB_8888)
-        Canvas(b).apply { drawColor(0xFF101014.toInt()); body.draw(this) }
-        save(b, "settings-full")
-        // «С телефона» opens the upload window, closing it stops the server
-        all(body).filterIsInstance<TextView>().first { it.text == "Загрузить обои с телефона" }.let { (it.parent.parent as View).performClick() }
-        settle(1)
-        val d = ShadowDialog.getLatestDialog(); assertNotNull(d); assertTrue(d.isShowing)
-        d.dismiss(); settle(1)
-        ctrl.pause().stop().destroy()
-    }
 }

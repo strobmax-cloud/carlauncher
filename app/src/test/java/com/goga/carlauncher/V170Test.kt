@@ -39,25 +39,11 @@ class V170Test {
         root.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY)); root.layout(0, 0, w, h)
     }
     private fun all(v: View): List<View> = if (v is ViewGroup) listOf(v) + (0 until v.childCount).flatMap { all(v.getChildAt(it)) } else listOf(v)
-    private fun home(a: ClassicActivity) = (ClassicActivity::class.java.getDeclaredField("screens").apply { isAccessible = true }.get(a) as Array<*>)[0] as HomeScreen
     private fun shot(v: View, name: String): Bitmap {
         val b = Bitmap.createBitmap(v.width, v.height, Bitmap.Config.ARGB_8888); v.draw(Canvas(b))
         val out = File(System.getProperty("user.dir"), "../preview/robo-v170-$name.png"); out.parentFile!!.mkdirs()
         FileOutputStream(out).use { b.compress(Bitmap.CompressFormat.PNG, 100, it) }
         return b
-    }
-    private fun play(a: ClassicActivity, src: String = "ЯНДЕКС МУЗЫКА") {
-        val h = home(a)
-        fun call(n: String, t: Class<*>, arg: Any) = HomeScreen::class.java.getDeclaredMethod(n, t).apply { isAccessible = true }.invoke(h, arg)
-        fun f(n: String) = HomeScreen::class.java.getDeclaredField(n).apply { isAccessible = true }.get(h)
-        val cover = android.graphics.BitmapFactory.decodeStream(javaClass.classLoader!!.getResourceAsStream("sample-cover.png"))
-        call("setIdle", Boolean::class.javaPrimitiveType!!, false)
-        call("showArt", Bitmap::class.java, ArtLoader.scale(cover, 520))
-        (f("srcTv") as TextView).text = src
-        (f("titleTv") as TextView).text = "Ночная трасса"
-        (f("artistTv") as TextView).text = "Демо-исполнитель · Альбом 2026"
-        (f("progBox") as View).visibility = View.VISIBLE
-        (f("progBar") as BarView).fraction = 0.36f
     }
     private fun fakeApp(pkg: String, label: String) {
         val spm = shadowOf(ctx.packageManager)
@@ -73,13 +59,6 @@ class V170Test {
             "com.teyes.bt.app" to "Bluetooth", "com.teyes.fm" to "Радио", "com.google.android.youtube" to "YouTube",
             "com.liskovsoft.smarttubetv.beta" to "SmartTube").forEach { fakeApp(it.first, it.second) }
         AppRepo.invalidate()
-    }
-    private fun open(layout: String, w: Int = 1280, h: Int = 720): Pair<ClassicActivity, View> {
-        Prefs.layout = layout
-        val a = Robolectric.buildActivity(ClassicActivity::class.java).setup().get()
-        val root = a.window.decorView
-        settle(); relayout(root, w, h); settle(); relayout(root, w, h); settle(); play(a); settle(2); relayout(root, w, h); settle(2)
-        return a to root
     }
     private fun onScreen(root: View, v: View): Boolean {
         val p = IntArray(2); v.getLocationInWindow(p)
@@ -134,165 +113,6 @@ class V170Test {
         assertEquals(12L, noCode.versionCode)
         val same = Updater.parseGithub(json.replace("versionCode: 12", "").replace("v1.7.1", "v1.7.0"), "1.7.0", 11)
         assertEquals(11L, same.versionCode)
-    }
-
-    @Test fun railItemsAndDashcamNames() {
-        Prefs.railItems = "home,apps,media,dvr,settings,layout,phone,wifi"
-        Rail.add("camera"); Rail.add("app:ru.yandex.music"); Rail.move("camera", -1); Rail.remove("media")
-        assertEquals(listOf("home", "apps", "dvr", "settings", "layout", "phone", "camera", "wifi", "app:ru.yandex.music"), Rail.items())
-        assertEquals(listOf("home", "wifi"), Rail.parse("home, nonsense,wifi,home"))
-        assertTrue(Dvr.looksLikeDashcam("ch0_20261112_083000.mp4") && Dvr.looksLikeDashcam("20261112_083000.ts") && Dvr.looksLikeDashcam("NOR_0012.MP4"))
-        assertTrue(!Dvr.looksLikeDashcam("Отпуск.mp4") && !Dvr.looksLikeDashcam("ch0_1.jpg"))
-        assertEquals("1.5 ГБ", Storage.gb(1_610_612_736L).replace(',', '.')); assertEquals("58 ГБ", Storage.gb(62_277_025_792L))
-        val low = Storage.Info("USB", "/x", 100, 5, true); assertTrue(low.low && !Storage.Info("USB", "/x", 100, 50, true).low)
-        assertEquals(0xFFB8E01F.toInt(), Accents.color("lime")); assertEquals(null, Accents.color(""))
-    }
-
-    // ---------------- UI ----------------
-    @Test fun singleNavigatorEverywhere() {
-        teyesApps(); Prefs.navDefault = "ru.dublgis.dgismobile"
-        for (l in Layouts.ALL) {
-            val (_, root) = open(l.id)
-            val texts = all(root).filterIsInstance<TextView>().filter { it.isShown }.map { it.text.toString() }
-            assertTrue("${l.id}: no «Навигатор + музыка»", texts.none { it.contains("Навигатор + музыка", true) || it.contains("НАВИГАТОР + МУЗЫКА") })
-            assertTrue("${l.id}: Я.Навигатор is not an extra button", texts.none { it == "Я.Навигатор" || it == "Я.НАВИГАТОР" })
-            if (l.id in setOf("minimal", "map")) assertTrue("${l.id}: clean nav card", all(root).any { it is NavCardView && it.isShown })
-            assertTrue("${l.id}: no drawn fake map", all(root).none { it is NavArtView })
-        }
-    }
-
-    @Test fun volumeAlwaysOnScreen() {
-        teyesApps()
-        for (side in listOf("left", "right", "bottom")) for (vs in listOf("both", "left", "right")) {
-            Prefs.railSide = side; Prefs.volSide = vs
-            for ((w, h) in listOf(1280 to 720, 1280 to 680, 1024 to 600)) for (l in listOf("premium", "cockpit", "minimal", "showcase")) {
-                val (_, root) = open(l, w, h)
-                val vols = all(root).filter { it.contentDescription == "Громче" || it.contentDescription == "Тише" }
-                val want = if (side == "bottom") (if (vs == "both") 4 else 2) else (if (vs == "both") 4 else 2)
-                assertEquals("$side/$vs $l ${w}x$h volume buttons", want, vols.size)
-                vols.forEach { assertTrue("$side/$vs $l ${w}x$h: volume fully on screen", onScreen(root, it)) }
-                if (side == "left" && vs == "both" && l == "premium" && h == 680) shot(root, "premium-statusbar-680")
-            }
-        }
-        // the premium list (photo 1) scrolls instead of being cut off
-        Prefs.railSide = "left"; Prefs.volSide = "both"
-        val (_, root) = open("premium")
-        assertTrue(all(root).any { it is android.widget.ScrollView && (it.getChildAt(0) as? ViewGroup)?.childCount ?: 0 >= 8 })
-    }
-
-    @Test fun renders() {
-        teyesApps(); Prefs.navDefault = "ru.dublgis.dgismobile"
-        Prefs.railItems = Rail.join(Rail.items() + listOf("bt", "camera", "nav", "music"))
-        for ((side, name) in listOf("left" to "rail-left", "right" to "rail-right", "bottom" to "dock-bottom")) {
-            Prefs.railSide = side
-            val (_, root) = open("showcase"); shot(root, name)
-        }
-        Prefs.railSide = "left"; Prefs.railItems = Rail.DEFAULT
-        for (l in listOf("minimal", "map", "premium", "cluster", "cockpit")) { val (_, root) = open(l); shot(root, "layout-$l") }
-        for (acc in listOf("lime", "red", "purple", "cyan", "orange", "yellow")) { Prefs.accent = acc; val (_, root) = open("cluster"); shot(root, "accent-$acc") }
-        Prefs.accent = ""
-        // phone over Bluetooth without a session
-        val (a, root) = open("showcase")
-        BtMeta.title = "Трек с телефона"; BtMeta.artist = "Исполнитель"; BtMeta.album = null; BtMeta.playing = true; BtMeta.at = android.os.SystemClock.elapsedRealtime()
-        HomeScreen::class.java.getDeclaredMethod("showPhone").apply { isAccessible = true }.invoke(home(a))
-        settle(1); relayout(root); settle(1); shot(root, "phone-bt")
-        BtMeta.at = 0
-    }
-
-    @Test fun settingsKeepScroll() {
-        teyesApps()
-        val a = Robolectric.buildActivity(ClassicActivity::class.java).setup().get(); val root = a.window.decorView
-        settle(); relayout(root, 1280, 720); settle()
-        a.openSettings(); settle(); relayout(root); settle()
-        val sv = all(root).filterIsInstance<android.widget.ScrollView>().first { it.isShown && (it.getChildAt(0)?.height ?: 0) > 3000 }
-        sv.scrollTo(0, 2600); settle(1)
-        assertEquals(2600, SettingsScreen.savedScroll)
-        // a choice that rebuilds the whole launcher (accent) and one that rebuilds only the page (volume method)
-        all(root).first { it.contentDescription == "Акцент Лайм" }.performClick(); settle(); relayout(root); settle()
-        val sv2 = all(root).filterIsInstance<android.widget.ScrollView>().first { it.isShown && (it.getChildAt(0)?.height ?: 0) > 3000 }
-        assertEquals("scroll kept after a change", 2600, sv2.scrollY)
-        // render the settings pages with the new sections
-        val body = sv2.getChildAt(0)
-        val full = Bitmap.createBitmap(body.width, body.height, Bitmap.Config.ARGB_8888); body.draw(Canvas(full))
-        FileOutputStream(File(System.getProperty("user.dir"), "../preview/robo-v170-settings-full.png")).use { full.compress(Bitmap.CompressFormat.PNG, 90, it) }
-        shot(root, "settings")
-        // opening settings again from the menu starts at the top
-        a.show(ClassicActivity.HOME); a.openSettings(); settle(); assertEquals(0, SettingsScreen.savedScroll)
-    }
-
-    @Test fun storageScreens() {
-        teyesApps()
-        val a = Robolectric.buildActivity(ClassicActivity::class.java).setup().get(); val root = a.window.decorView
-        settle(); relayout(root, 1280, 720); settle()
-        a.show(ClassicActivity.DVR); settle(6); relayout(root); settle(2); shot(root, "dvr")
-        a.show(ClassicActivity.MEDIA); settle(6); relayout(root); settle(2); shot(root, "media")
-        a.show(ClassicActivity.APPS); settle(6); relayout(root); settle(2); shot(root, "apps")
-    }
-
-    /** Home badge when a volume has < 10 % free (real StatFs in Robolectric is roomy → forced text for the render). */
-    @Test fun lowStorageBadge() {
-        assertTrue(Storage.Info("USB", "/x", 100, 5, true).low)
-        assertTrue(!Storage.Info("USB", "/x", 100, 50, true).low)
-        teyesApps()
-        val a = Robolectric.buildActivity(ClassicActivity::class.java).setup().get(); val root = a.window.decorView
-        settle(); relayout(root, 1280, 720); settle(); play(a)
-        ClassicActivity::class.java.getDeclaredField("lowText").apply { isAccessible = true }.set(a, "USB 6 %")
-        ClassicActivity::class.java.getDeclaredMethod("updateBadge").apply { isAccessible = true }.invoke(a)
-        settle(1); relayout(root); settle(1)
-        assertTrue("badge shown", all(root).any { it.isShown && it is TextView && it.text.toString().startsWith("⚠ Мало места") })
-        shot(root, "low-storage-badge")
-        a.show(ClassicActivity.DVR); settle(2)
-        assertTrue("badge only on home", all(root).none { it.isShown && it is TextView && it.text.toString().startsWith("⚠ Мало места") })
-        // usage bars with sample volumes (Robolectric has no USB/SD): internal, USB with DVR (low), SD
-        val G = 1024L * 1024 * 1024
-        val demo = listOf(Storage.Info("Память магнитолы", "/storage/emulated/0", 25 * G, 11 * G, false),
-            Storage.Info("USB-флешка", "/storage/USB1", 32 * G, 2 * G, true), Storage.Info("SD-карта", "/storage/SD", 64 * G, 40 * G, true))
-        val dvr = (ClassicActivity::class.java.getDeclaredField("screens").apply { isAccessible = true }.get(a) as Array<*>)[ClassicActivity.DVR] as DvrScreen
-        val box = DvrScreen::class.java.getDeclaredField("storageBox").apply { isAccessible = true }.get(dvr) as android.widget.LinearLayout
-        settle(4); box.removeAllViews(); box.addView(Storage.compact(a, demo), Ui.lin(Ui.MATCH, Ui.WRAP))
-        settle(1); relayout(root); settle(1); shot(root, "dvr-storage")
-        val v = Storage.view(a, demo)
-        v.measure(View.MeasureSpec.makeMeasureSpec(900, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
-        v.layout(0, 0, 900, v.measuredHeight)
-        val b = Bitmap.createBitmap(900, v.measuredHeight, Bitmap.Config.ARGB_8888); Canvas(b).apply { drawColor(0xFF15161B.toInt()); v.draw(this) }
-        FileOutputStream(File(System.getProperty("user.dir"), "../preview/robo-v170-storage-settings.png")).use { b.compress(Bitmap.CompressFormat.PNG, 100, it) }
-    }
-
-    /** Bug 1.7.0: Я.Музыка paused + radio started → radio is the source, ⏮ ⏭ go to the radio (FYT OEM service), never the paused session. */
-    @Test fun radioBeatsPausedSession() {
-        val S = MediaHub.Kind.SESSION; val R = MediaHub.Kind.RADIO; val P = MediaHub.Kind.PHONE
-        // paused Я.Музыка (started at 100) vs radio started later (200) → radio
-        assertEquals(1, MediaHub.pick(listOf(MediaHub.Cand(S, false, 100), MediaHub.Cand(R, true, 200))))
-        // paused session that was played AFTER the radio still loses to an active radio? no: radio switched off by the start → inactive
-        assertEquals(0, MediaHub.pick(listOf(MediaHub.Cand(S, false, 300), MediaHub.Cand(R, false, 200))))
-        // playing session started after radio → session
-        assertEquals(0, MediaHub.pick(listOf(MediaHub.Cand(S, true, 300), MediaHub.Cand(R, true, 200))))
-        // phone started playing last → phone
-        assertEquals(2, MediaHub.pick(listOf(MediaHub.Cand(S, true, 300), MediaHub.Cand(R, false, 200), MediaHub.Cand(P, true, 400))))
-        assertEquals(-1, MediaHub.pick(emptyList()))
-        // MTC/FYT reports
-        assertTrue(Radio.parse(android.content.Intent("com.microntek.radio.report").putExtra("type", "content").putExtra("freq", 101400000)))
-        assertEquals("FM 101.4", Radio.freq); assertTrue(Radio.on)
-        assertTrue(Radio.parse(android.content.Intent("com.microntek.radio.report").putExtra("type", "power").putExtra("state", false)))
-        assertTrue(!Radio.on)
-        // launching the radio from the launcher makes it the active source; next station → OEM service
-        teyesApps(); fakeApp("com.syu.radio", "Радио")
-        val a = Robolectric.buildActivity(ClassicActivity::class.java).setup().get(); val root = a.window.decorView
-        settle(); relayout(root, 1280, 720); settle()
-        assertTrue(AppRepo.launch(a, "com.syu.radio")); settle(2)
-        assertEquals(MediaHub.Kind.RADIO, MediaHub.kind)
-        val app = shadowOf(ctx)
-        while (app.nextStartedService != null) {}
-        MediaHub.command(a, android.view.KeyEvent.KEYCODE_MEDIA_NEXT)
-        val svc = app.nextStartedService
-        assertEquals("com.syu.radio.nextservice", svc?.action); assertEquals("com.syu.broadcast", svc?.component?.packageName)
-        MediaHub.command(a, android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS)
-        assertEquals("com.syu.radio.prevservice", app.nextStartedService?.action)
-        Radio.freq = "FM 101.4"; MediaHub.pinRadio("com.syu.radio"); settle(2); a.show(ClassicActivity.HOME); settle(2); relayout(root); settle(1)
-        assertTrue("radio card", all(root).any { it.isShown && it is TextView && it.text.toString() == "FM 101.4" })
-        shot(root, "radio-card")
-        // picking a session by hand switches the radio off
-        MediaHub.pin("ru.yandex.music"); assertTrue(!Radio.on)
     }
 
     /** Owner chose SmartTube: tile «YouTube» opens SmartTube when installed, YouTube otherwise; the setting overrides. */

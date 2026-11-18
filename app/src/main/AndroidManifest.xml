@@ -57,14 +57,6 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-        <!-- v1.7.1: the 1.7.0 screens, opened only from Настройки → О программе → «Классический экран 1.7.0» -->
-        <activity
-            android:name=".ClassicActivity"
-            android:exported="false"
-            android:screenOrientation="sensorLandscape"
-            android:resizeableActivity="false"
-            android:windowSoftInputMode="adjustNothing|stateHidden"
-            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density|fontScale|locale|layoutDirection|mcc|mnc" />
         <service
             android:name=".MediaListener"
             android:exported="true"
@@ -75,9 +67,6 @@
             </intent-filter>
         </service>
         <receiver android:name=".InstallReceiver" android:exported="false" />
-        <service
-            android:name=".MiniPlayer"
-            android:exported="false" />
         <!-- v1.7.5: optional accessibility service «Car Launcher — кнопки навигации»: only performGlobalAction
              (Назад / Домой / Недавние) and the floating ◁ ○ □ (accessibility overlay). No key-event filtering
              (steering-wheel keys untouched), no window content. Off until the user enables it in Спец. возможности. -->
@@ -91,9 +80,6 @@
             </intent-filter>
             <meta-data android:name="android.accessibilityservice" android:resource="@xml/nav_access" />
         </service>
-        <service
-            android:name=".FloatNav"
-            android:exported="false" />
         <provider
             android:name=".FilesProvider"
             android:authorities="com.goga.carlauncher.files"

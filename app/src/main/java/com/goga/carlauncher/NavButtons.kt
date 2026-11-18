@@ -26,9 +26,11 @@ import com.goga.carlauncher.Ui.u
  * «Car Launcher — кнопки навигации»: optional accessibility service used ONLY for performGlobalAction(BACK / HOME /
  * RECENTS) and, since v1.7.5, to show the floating ◁ ○ □ pill over other apps (TYPE_ACCESSIBILITY_OVERLAY — no
  * «поверх других окон» permission needed).
+ * v1.7.7: «−10» / «+10» seek buttons on the pill while the app in front plays (see [Seek]); to know the app in front the
+ * service receives TYPE_WINDOW_STATE_CHANGED and keeps ONLY its package name.
  * SAFETY: it does not filter key events (no flagRequestFilterKeyEvents → steering-wheel and panel keys go to the unit
- * as before), cannot read window content (canRetrieveWindowContent=false), ignores every accessibility event, and
- * changes no settings. The user switches it on once in Android → Спец. возможности and off the same way.
+ * as before), cannot read window content (canRetrieveWindowContent=false), uses no event besides the package name of
+ * the window in front, and changes no settings. The user switches it on once in Android → Спец. возможности and off the same way.
  */
 class NavAccess : AccessibilityService() {
     companion object {
@@ -49,6 +51,11 @@ class NavAccess : AccessibilityService() {
     private var pill: View? = null
     private var lp: WindowManager.LayoutParams? = null
     private val dimR = Runnable { if (K.floatDim) pill?.animate()?.alpha(0.38f)?.setDuration(500)?.start() }
+    /** package of the app in front (from window-state events; null = unknown) */
+    @Volatile var fg: String? = null; private set
+    private val seekViews = ArrayList<View>()
+    private var seekShown = false
+    private val seekPoll = object : Runnable { override fun run() { syncSeek(); if (pill != null && pill?.visibility == View.VISIBLE) h.postDelayed(this, 1000) } }
 
     override fun onServiceConnected() {
         instance = this
@@ -56,7 +63,13 @@ class NavAccess : AccessibilityService() {
     }
     override fun onUnbind(intent: Intent?): Boolean { removeFloat(); instance = null; return super.onUnbind(intent) }
     override fun onDestroy() { removeFloat(); instance = null; super.onDestroy() }
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        // only the package name of the window in front; our own pill / the system bar / IME do not count
+        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        val p = event.packageName?.toString() ?: return
+        if (p == packageName || p == "com.android.systemui" || p.contains("inputmethod")) return
+        if (p != fg) { fg = p; h.post { syncSeek() } }
+    }
     override fun onInterrupt() {}
 
     internal fun syncFloat() {
@@ -64,11 +77,27 @@ class NavAccess : AccessibilityService() {
             val want = K.ready && K.floatOn && !front
             if (want && pill == null) addFloat()
             pill?.visibility = if (want) View.VISIBLE else View.GONE
-            if (want) wake()
+            if (want) { wake(); h.removeCallbacks(seekPoll); h.post(seekPoll) } else h.removeCallbacks(seekPoll)
         } catch (t: Throwable) { CrashLog.soft(t) }
     }
-    internal fun removeFloat() { h.removeCallbacks(dimR); pill?.let { try { wm?.removeView(it) } catch (_: Throwable) {} }; pill = null }
+    internal fun removeFloat() { h.removeCallbacks(dimR); h.removeCallbacks(seekPoll); seekViews.clear(); seekShown = false; pill?.let { try { wm?.removeView(it) } catch (_: Throwable) {} }; pill = null }
     private fun wake() { val p = pill ?: return; h.removeCallbacks(dimR); p.animate().cancel(); p.alpha = 1f; h.postDelayed(dimR, 4000) }
+
+    /** show / hide «−10» «+10»; the pill keeps its right edge where it was (it sits near the right side by default) */
+    internal fun syncSeek() {
+        val row = pill ?: return; val l = lp ?: return; val w = wm ?: return
+        val want = K.ready && K.seekOn && try { Seek.available(this, fg) } catch (_: Throwable) { false }
+        if (want == seekShown) return
+        val before = row.width.takeIf { it > 0 } ?: row.measuredWidth
+        seekShown = want
+        for (v in seekViews) v.visibility = if (want) View.VISIBLE else View.GONE
+        row.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED)
+        val after = row.measuredWidth
+        val dm = android.util.DisplayMetrics(); @Suppress("DEPRECATION") w.defaultDisplay.getRealMetrics(dm)
+        l.x = (l.x + before - after).coerceIn(0, Math.max(0, dm.widthPixels - after))
+        try { w.updateViewLayout(row, l) } catch (_: Throwable) {}
+        wake()
+    }
 
     @SuppressLint("ClickableViewAccessibility")
     private fun addFloat() {
@@ -86,6 +115,26 @@ class NavAccess : AccessibilityService() {
         grip.addView(View(this).apply { background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = d(3).toFloat(); setColor(0x80FFFFFF.toInt()) } },
             FrameLayout.LayoutParams(d(5), bs / 2, Gravity.CENTER))
         row.addView(grip, LinearLayout.LayoutParams(d(28), bs))
+        // «−10» / «+10»: only while the app in front plays (syncSeek)
+        for (sign in intArrayOf(-1, 1)) {
+            val tv = android.widget.TextView(this).apply {
+                text = (if (sign < 0) "−" else "+") + K.seekStep; setTextColor(0xF0FFFFFF.toInt()); gravity = Gravity.CENTER
+                textSize = 0f; setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, bs * .34f); typeface = android.graphics.Typeface.DEFAULT_BOLD
+                contentDescription = if (sign < 0) "Назад на ${K.seekStep} секунд" else "Вперёд на ${K.seekStep} секунд"
+                background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = bs / 2f; setColor(0x26FFFFFF) }
+                visibility = View.GONE
+            }
+            tv.setOnTouchListener { v, e ->
+                when (e.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> { wake(); v.alpha = .55f }
+                    MotionEvent.ACTION_UP -> { v.alpha = 1f; if (e.x in 0f..v.width.toFloat() && e.y in 0f..v.height.toFloat()) Seek.seek(this, fg, sign * K.seekStep * 1000L) }
+                    MotionEvent.ACTION_CANCEL -> v.alpha = 1f
+                }
+                true
+            }
+            row.addView(tv, LinearLayout.LayoutParams(bs * 6 / 5, bs).apply { leftMargin = d(2) })
+            seekViews.add(tv)
+        }
         fun b(icon: String, desc: String, action: Int) {
             val f = FrameLayout(this).apply { contentDescription = desc }
             val iv = android.widget.ImageView(this).apply { setImageResource(Ck.iconRes(this@NavAccess, icon)); imageTintList = android.content.res.ColorStateList.valueOf(0xF0FFFFFF.toInt()) }
@@ -132,14 +181,14 @@ class NavAccess : AccessibilityService() {
 object NavKeys {
     fun back(c: Context) { if (!NavAccess.act(AccessibilityService.GLOBAL_ACTION_BACK)) explain(c) }
     fun recents(c: Context) { if (!NavAccess.act(AccessibilityService.GLOBAL_ACTION_RECENTS)) explain(c) }
-    /** Home = our launcher (no service needed). */
+    /** Home = our launcher (MainActivity, singleTask; no service needed). v1.7.7: it used to open the old 1.7.0 screen. */
     fun home(c: Context) {
-        try { c.startActivity(Intent(c, ClassicActivity::class.java).setAction(Intent.ACTION_MAIN).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)) }
+        try { c.startActivity(Intent(c, MainActivity::class.java).setAction(Intent.ACTION_MAIN).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)) }
         catch (_: Throwable) { NavAccess.act(AccessibilityService.GLOBAL_ACTION_HOME) }
     }
     const val HOW = "«Недавние» и плавающие кнопки ◁ ○ □ поверх других приложений работают через службу «Car Launcher — кнопки навигации».\n\n" +
         "Включить один раз:\n1. Нажмите «Открыть настройки».\n2. Спец. возможности (Accessibility) → «Car Launcher — кнопки навигации».\n3. Включите и подтвердите «Разрешить».\n4. Вернитесь кнопкой «Домой».\n\n" +
-        "Служба только нажимает «Назад», «Домой» и «Недавние» и показывает плавающие кнопки. Она не читает экран, не перехватывает кнопки руля и магнитолы и не меняет настройки. Выключается там же."
+        "Служба только нажимает «Назад», «Домой» и «Недавние», показывает плавающие кнопки и узнаёт, какое приложение открыто (только его название — для кнопок перемотки −10/+10). Она не читает экран, не перехватывает кнопки руля и магнитолы и не меняет настройки. Выключается там же."
     fun explain(c: Context) {
         if (c is android.app.Activity) {
             val d = android.app.AlertDialog.Builder(c, R.style.Dialog).setTitle("Кнопки навигации").setMessage(HOW)
@@ -151,92 +200,4 @@ object NavKeys {
         }
     }
     fun openSettings(c: Context) = AppRepo.startSafe(c, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS), Intent(Settings.ACTION_SETTINGS))
-}
-
-/**
- * v1.7.1 optional floating «Назад / Домой / Недавние» pill over other apps (the system bar of the TEYES sits under the
- * phone holder). Overlay permission, off by default, draggable by its grip, hidden while the launcher is in front.
- */
-class FloatNav : Service() {
-    companion object {
-        private const val CH = "floatnav"
-        const val ACTION_STOP = "com.goga.carlauncher.FLOATNAV_STOP"
-        @Volatile var instance: FloatNav? = null; private set
-        private var launcherInFront = true
-        fun start(c: Context): Boolean {
-            if (!Settings.canDrawOverlays(c)) return false
-            val i = Intent(c, FloatNav::class.java)
-            return try { if (Build.VERSION.SDK_INT >= 26) c.startForegroundService(i) else c.startService(i); true } catch (_: Exception) { false }
-        }
-        fun stop(c: Context) { try { c.stopService(Intent(c, FloatNav::class.java)) } catch (_: Exception) {} }
-        fun setLauncherInFront(v: Boolean) { launcherInFront = v; instance?.apply() }
-        /** Called from ClassicActivity: keep the service in line with the setting. */
-        fun sync(c: Context) { if (Prefs.floatNav && Settings.canDrawOverlays(c)) { if (instance == null) start(c) } else if (instance != null) stop(c) }
-    }
-    private lateinit var wm: WindowManager
-    private lateinit var lp: WindowManager.LayoutParams
-    private var root: View? = null
-
-    override fun onBind(i: Intent?): IBinder? = null
-    override fun onCreate() {
-        super.onCreate()
-        Prefs.init(this)
-        startForeground(8, notification())
-        val dm = resources.displayMetrics
-        if (Ui.s == 1f) Ui.s = minOf(maxOf(dm.widthPixels, dm.heightPixels) / 1280f, minOf(dm.widthPixels, dm.heightPixels) / 720f)
-        wm = getSystemService(WindowManager::class.java)
-        try { build(); instance = this; apply() } catch (e: Exception) { stopSelf() }
-    }
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) { Prefs.floatNav = false; stopSelf() }
-        return START_STICKY
-    }
-    override fun onDestroy() {
-        instance = null
-        root?.let { try { wm.removeView(it) } catch (_: Exception) {} }; root = null
-        super.onDestroy()
-    }
-
-    private fun notification(): Notification {
-        val nm = getSystemService(NotificationManager::class.java)
-        if (Build.VERSION.SDK_INT >= 26 && nm.getNotificationChannel(CH) == null)
-            nm.createNotificationChannel(NotificationChannel(CH, "Кнопки Назад / Домой", NotificationManager.IMPORTANCE_MIN).apply { setShowBadge(false) })
-        val stop = PendingIntent.getService(this, 2, Intent(this, FloatNav::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val b = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, CH) else @Suppress("DEPRECATION") Notification.Builder(this)
-        return b.setSmallIcon(R.drawable.ic_back).setContentTitle("Плавающие кнопки Назад / Домой").setContentText("Нажмите, чтобы убрать")
-            .setContentIntent(stop).setOngoing(true).build()
-    }
-
-    @SuppressLint("ClickableViewAccessibility")
-    private fun build() {
-        val size = u(72)
-        val pill = Ui.hbox(this).apply { setPadding(u(6), u(6), u(8), u(6)); background = Ui.round(0xB3101012.toInt(), u(44)) }
-        val grip = FrameLayout(this).apply { contentDescription = "Перетащить" }
-        grip.addView(View(this).apply { background = Ui.round(0x80FFFFFF.toInt(), u(3)) }, Ui.frame(u(6), u(36)))
-        pill.addView(grip, Ui.lin(u(34), size))
-        fun b(res: Int, desc: String, f: () -> Unit) = Ui.iconButton(this, res, 72, 34, 0x33FFFFFF, Ui.TEXT, 0x66FFFFFF) { f() }.apply { contentDescription = desc }
-        pill.addView(b(R.drawable.ic_back, "Назад") { NavKeys.back(this) }, Ui.lin(size, size))
-        pill.addView(b(R.drawable.ic_home, "Домой") { NavKeys.home(this) }, Ui.lin(size, size).apply { leftMargin = u(10) })
-        pill.addView(b(R.drawable.ic_recents, "Недавние") { NavKeys.recents(this) }, Ui.lin(size, size).apply { leftMargin = u(10) })
-        lp = WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
-            if (Build.VERSION.SDK_INT >= 26) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS, PixelFormat.TRANSLUCENT).apply {
-            gravity = Gravity.TOP or Gravity.START
-            val dm = resources.displayMetrics
-            x = Prefs.floatX.takeIf { it >= 0 } ?: (dm.widthPixels - u(320)); y = Prefs.floatY.takeIf { it >= 0 } ?: (dm.heightPixels - u(110))
-        }
-        var sx = 0f; var sy = 0f; var ox = 0; var oy = 0
-        grip.setOnTouchListener { _, e ->
-            when (e.actionMasked) {
-                MotionEvent.ACTION_DOWN -> { sx = e.rawX; sy = e.rawY; ox = lp.x; oy = lp.y }
-                MotionEvent.ACTION_MOVE -> { lp.x = (ox + (e.rawX - sx)).toInt().coerceAtLeast(0); lp.y = (oy + (e.rawY - sy)).toInt().coerceAtLeast(0); try { wm.updateViewLayout(root, lp) } catch (_: Exception) {} }
-                MotionEvent.ACTION_UP -> { Prefs.floatX = lp.x; Prefs.floatY = lp.y }
-            }
-            true
-        }
-        root = pill
-        wm.addView(pill, lp)
-    }
-    fun apply() { root?.visibility = if (launcherInFront) View.GONE else View.VISIBLE }
-    @Suppress("unused") private fun unused(l: LinearLayout) {}
 }

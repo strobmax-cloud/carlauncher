@@ -33,20 +33,6 @@ class V162Test {
         root.measure(View.MeasureSpec.makeMeasureSpec(root.width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(root.height, View.MeasureSpec.EXACTLY)); root.layout(0, 0, root.width, root.height)
     }
     private fun all(v: View): List<View> = if (v is ViewGroup) listOf(v) + (0 until v.childCount).flatMap { all(v.getChildAt(it)) } else listOf(v)
-    private fun home(a: ClassicActivity) = (ClassicActivity::class.java.getDeclaredField("screens").apply { isAccessible = true }.get(a) as Array<*>)[0] as HomeScreen
-    private fun play(a: ClassicActivity) {
-        val h = home(a)
-        fun call(n: String, t: Class<*>, arg: Any) = HomeScreen::class.java.getDeclaredMethod(n, t).apply { isAccessible = true }.invoke(h, arg)
-        fun f(n: String) = HomeScreen::class.java.getDeclaredField(n).apply { isAccessible = true }.get(h)
-        val cover = android.graphics.BitmapFactory.decodeStream(javaClass.classLoader!!.getResourceAsStream("sample-cover.png"))
-        call("setIdle", Boolean::class.javaPrimitiveType!!, false)
-        call("showArt", Bitmap::class.java, ArtLoader.scale(cover, 520))
-        (f("srcTv") as android.widget.TextView).text = "ЯНДЕКС МУЗЫКА"
-        (f("titleTv") as android.widget.TextView).text = "Ночная трасса"
-        (f("artistTv") as android.widget.TextView).text = "Демо-исполнитель · Альбом 2026"
-        (f("progBox") as View).visibility = View.VISIBLE
-        (f("progBar") as BarView).fraction = 0.36f
-    }
     private fun shot(v: View, name: String): Bitmap {
         val b = Bitmap.createBitmap(v.width, v.height, Bitmap.Config.ARGB_8888); v.draw(Canvas(b))
         val out = File(System.getProperty("user.dir"), "../preview/robo-v162-$name.png"); out.parentFile!!.mkdirs()
@@ -60,22 +46,6 @@ class V162Test {
             if (r > 120 && g > 120 && bl < 90 && kotlin.math.abs(r - g) < 50) n++
         }
         return n
-    }
-
-    @Test fun rearCarInEveryCarLayoutAndRoundCovers() {
-        val car = Dash.car(ctx, R.drawable.sx4_rear)
-        assertTrue("rear car asset decodes", car != null && car.height > car.width)   // rear view is taller than wide
-        for (m in listOf("night", "day")) for (id in listOf("minimal", "smart", "cluster", "showcase", "radial")) {
-            Prefs.dayMode = m; Prefs.layout = id
-            val a = Robolectric.buildActivity(ClassicActivity::class.java).setup().get()
-            val root = a.window.decorView
-            settle(); relayout(root); settle(); play(a); settle(); relayout(root); settle(2)
-            val bmp = shot(root, "$id-$m")
-            val covers = all(root).filterIsInstance<CoverView>()
-            assertTrue("$id: cover is a CoverView", covers.isNotEmpty() && covers.all { it.hasCover })
-            if (id == "radial") assertTrue("radial cover is a circle", covers.all { it.circle })
-            if (id != "radial") assertTrue("$id: the lime SX4 is on screen (${limePixels(bmp)})", limePixels(bmp) > 400)
-        }
     }
 
     @Test fun coverCornersAreSoftNotSquare() {
