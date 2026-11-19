@@ -125,9 +125,18 @@ object Festive {
             else if (r.width() * r.height() < big && v !== page) {
                 // text: only the part with letters (a wide TextView with short text must not block a whole row)
                 if (v is TextView && v.layout != null && v.text.isNotEmpty()) {
-                    val l = v.layout; var x0 = Float.MAX_VALUE; var x1 = -Float.MAX_VALUE
-                    for (i in 0 until l.lineCount) { x0 = min(x0, l.getLineLeft(i)); x1 = max(x1, l.getLineRight(i)) }
-                    val tx = r.left + v.totalPaddingLeft - v.scrollX
+                    // v1.7.9 fix: single-line TextViews lay out on a «very wide» line, so getLineLeft() of centred text
+                    // is far off-screen — use the line width and the view's horizontal gravity instead
+                    val l = v.layout; var lw = 0f
+                    for (i in 0 until l.lineCount) lw = max(lw, l.getLineWidth(i))
+                    val inner = (r.width() - v.totalPaddingLeft - v.totalPaddingRight).coerceAtLeast(0f)
+                    lw = min(lw, inner)
+                    val x0 = when (v.gravity and android.view.Gravity.HORIZONTAL_GRAVITY_MASK) {
+                        android.view.Gravity.CENTER_HORIZONTAL -> (inner - lw) / 2
+                        android.view.Gravity.RIGHT, android.view.Gravity.END -> inner - lw
+                        else -> 0f }
+                    val x1 = x0 + lw
+                    val tx = r.left + v.totalPaddingLeft
                     val ty = r.top + v.totalPaddingTop
                     blocks.add(RectF(max(r.left, tx + x0), max(r.top, ty), min(r.right, tx + x1), min(r.bottom, ty + l.height)))
                 } else if (v !is TextView) blocks.add(r)
