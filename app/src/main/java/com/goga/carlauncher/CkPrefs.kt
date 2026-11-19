@@ -75,6 +75,16 @@ object K {
     var seekOn: Boolean get() = b("seekOn", true); set(v) = pb("seekOn", v)
     /** seek step, seconds: 10 / 15 / 30 */
     var seekStep: Int get() = i("seekStep", 10); set(v) = pi("seekStep", v)
+    /** v1.7.8 «Праздничный режим»: off | on | auto (20 Dec – 14 Jan) */
+    var nyMode: String get() = s("nyMode", "auto").let { if (it in setOf("off", "on", "auto")) it else "auto" }; set(v) = ps("nyMode", v)
+    /** garland twinkle 0 (steady) … 100 (lively) */
+    var nyTwinkle: Int get() = i("nyTwinkle", 45).coerceIn(0, 100); set(v) = pi("nyTwinkle", v)
+    /** lights: warm | multi */
+    var nyLights: String get() = s("nyLights", "warm"); set(v) = ps("nyLights", v)
+    /** snowfall, snow caps and the drift */
+    var nySnow: Boolean get() = b("nySnow", true); set(v) = pb("nySnow", v)
+    /** fir branches */
+    var nyFir: Boolean get() = b("nyFir", true); set(v) = pb("nyFir", v)
     var floatX: Int get() = i("floatX", -1); set(v) = pi("floatX", v)
     var floatY: Int get() = i("floatY", -1); set(v) = pi("floatY", v)
     var lastScreen: Int get() = i("lastScreen", 0); set(v) = pi("lastScreen", v)

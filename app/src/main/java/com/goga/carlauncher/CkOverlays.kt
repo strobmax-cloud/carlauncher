@@ -562,7 +562,28 @@ class Overlays(private val ck: Cockpit) {
         return c
     }
 
+    /** v1.7.8 «Праздничный режим» (approved design v3) */
+    private fun festiveRows(p: LinearLayout) {
+        fun changed() { ck.ny.apply(); ck.refreshFx(); refreshSettings() }
+        val tw = W.vbox(a).apply { setPadding(0, 12, 0, 12) }
+        tw.addView(t(22f).apply { text = "Мерцание гирлянды" })
+        val sr = W.hbox(a)
+        sr.addView(t(18f, 0x99FFFFFF.toInt()).apply { text = "Спокойно" }, lin(W.WR, W.WR))
+        sr.addView(W.Slider(a, K.nyTwinkle, 0, 100) { v, _ -> K.nyTwinkle = v; ck.ny.lights.update(); ck.ny.lights.invalidate() }, lin(0, 44, 1f).apply { leftMargin = 16; rightMargin = 16 })
+        sr.addView(t(18f, 0x99FFFFFF.toInt()).apply { text = "Ярко" }, lin(W.WR, W.WR))
+        tw.addView(sr, lin(W.M, 44).apply { topMargin = 10 })
+        add(p, "Праздничный режим  ✦",
+            segRow("Праздничный режим", "Провисающие гирлянды, снег на панелях, сугроб и еловые ветки. «Авто» — с 20 декабря по 14 января",
+                listOf("off" to "Выкл", "on" to "Вкл", "auto" to "Авто · 20 дек – 14 янв"), K.nyMode) { K.nyMode = it; changed() },
+            tw,
+            segRow("Огоньки", null, listOf("warm" to "Тёплые", "multi" to "Разноцветные"), K.nyLights) { K.nyLights = it; ck.ny.apply() ; refreshSettings() },
+            W.row(a, "Снег и сугроб", "Снежинки, снег на верхних кромках панелей и сугроб внизу", W.Toggle(a, K.nySnow) { K.nySnow = it; changed() }, 76, 42),
+            W.row(a, "Еловые ветки", "Веточки по углам — никогда не закрывают текст и кнопки", W.Toggle(a, K.nyFir) { K.nyFir = it; changed() }, 76, 42),
+            W.row(a, "Сейчас", Festive.status(), null))
+    }
+
     private fun secLook(p: LinearLayout) {
+        festiveRows(p)
         add(p, "Стиль",
             segRow("Оформление", "«Линза» — тёмная приборная панель, «Стекло» — стеклянные карточки на цветном фоне", listOf("C" to "C · Линза", "D" to "D · Стекло"), K.style) { K.style = it; ck.rebuildAll(); refreshSettings() },
             segRow("Размер", "«Крупный» — меньше всего на экране, но крупнее текст и кнопки", listOf("n" to "Обычный", "b" to "Крупный"), if (K.big) "b" else "n") { K.big = it == "b"; ck.rebuildAll(); refreshSettings() })

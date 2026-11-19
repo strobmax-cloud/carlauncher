@@ -87,6 +87,8 @@ class Cockpit(val a: MainActivity) {
     /** v1.7.4: screen 2 = «Фон» (replaces the «Природа» mode of Музыка): full-screen photo / video + minimal music */
     val fon get() = screen == 2
     val overlays = Overlays(this)
+    /** v1.7.8 «Праздничный режим» layers (garlands, snow, fir branches) */
+    val ny = NyLayer(this)
 
     // live views (rebuilt with the page)
     private var lens: LensView? = null
@@ -126,6 +128,7 @@ class Cockpit(val a: MainActivity) {
             try {
                 updClock(); updMedia(false); Trip.checkDay(); if (Trip.checkTrip()) updMil()
                 if (Trip.stale() && Trip.speed != null) updSpeed()
+                ny.checkAuto()
             } catch (t: Throwable) { CrashLog.soft(t) }
             h.postDelayed(this, 1000)
         }
@@ -144,6 +147,7 @@ class Cockpit(val a: MainActivity) {
         st.addView(over, FrameLayout.LayoutParams(Ck.W, Ck.H))
         st.addView(volo, FrameLayout.LayoutParams(Ck.W, Ck.H))
         volo.isClickable = false
+        try { ny.attach(st, page) } catch (t: Throwable) { CrashLog.soft(t) }
         toast = Ck.text(a, 21f, Color.WHITE, Ck.face(true), 2, Gravity.CENTER).apply {
             setPadding(26, 14, 26, 14); background = Panel(0xE6141820.toInt(), 0x40FFFFFF, 1.2f, floatArrayOf(24f, 24f, 24f, 24f), false); visibility = View.GONE; maxWidth = 900
         }
@@ -168,8 +172,8 @@ class Cockpit(val a: MainActivity) {
         h.removeCallbacks(tick); h.post(tick)
         updAll()
     }
-    fun onResume() { resumed = true; overlays.onResume(); MediaHub.refresh(); updAll(); checkLow(); video?.pauseIfHidden(true); bg.updateRunning(); particles.update() }
-    fun onPause() { resumed = false; video?.pauseIfHidden(false) }
+    fun onResume() { resumed = true; overlays.onResume(); MediaHub.refresh(); updAll(); checkLow(); video?.pauseIfHidden(true); bg.updateRunning(); particles.update(); ny.onResume() }
+    fun onPause() { resumed = false; video?.pauseIfHidden(false); ny.onPause() }
     fun onStop() {
         MediaHub.detach(mediaListener); Wx.listeners.remove(wxListener); Trip.listeners.remove(tripListener)
         h.removeCallbacks(tick); Eq.close(); Syu.listener = null
@@ -226,6 +230,8 @@ class Cockpit(val a: MainActivity) {
         /** «Фон»: the controls hide after this long without a touch */
         const val FON_HIDE_MS = 6000L
         fun fxKind(photo: Boolean): String {
+            // v1.7.8: «Праздничный режим» + «Снег и сугроб» → it snows on every background
+            if (K.nySnow && Festive.on()) return "snow"
             if (!K.particles) return "none"
             if (!K.fxAuto) return if (K.fxKind == "rain" || K.fxKind == "snow") K.fxKind else "none"
             val k = Wx.kind()
@@ -284,6 +290,7 @@ class Cockpit(val a: MainActivity) {
         if (fon) buildFon() else if (Ck.isC) buildC() else buildD()
         if (!fon) checkLow()
         updAll()
+        ny.schedule()
     }
 
     private fun accent() = Ck.accent()

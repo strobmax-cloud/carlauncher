@@ -268,7 +268,10 @@ object Videos {
         return (n.replaceFirstChar { it.uppercase() }.ifEmpty { fileName }) to g
     }
     val EXT = setOf("mp4", "m4v", "webm", "mkv", "3gp", "mov")
-    fun isVideo(f: File) = f.isFile && f.length() > 0 && f.name.substringAfterLast('.').lowercase() in EXT
+    /** v1.7.8: files smaller than this are never real clips (macOS «._name» AppleDouble files are ~4 KB) */
+    const val MIN_BYTES = 100L * 1024
+    /** v1.7.8: no hidden / macOS «._» companions, no empty or tiny files */
+    fun isVideo(f: File) = !f.name.startsWith(".") && f.name.substringAfterLast('.').lowercase() in EXT && f.isFile && f.length() >= MIN_BYTES
     /** a child folder by name, any letter case (CarLauncher/Backgrounds = carlauncher/backgrounds) */
     fun child(dir: File, name: String): File? = try { dir.listFiles()?.firstOrNull { it.isDirectory && it.name.equals(name, true) } } catch (_: Throwable) { null }
     /** folders looked at on one stick / memory: CarLauncher/Backgrounds, Backgrounds, CarLauncher (any case) */
@@ -312,7 +315,7 @@ object Videos {
         AppRepo.exec.execute { scan(app); AppRepo.main.post(done) }
     }
     /** the chosen clip, if its file is there now */
-    fun chosen(): File? = K.video.takeIf { it.isNotEmpty() }?.let { File(it) }?.takeIf { it.isFile } ?: list.firstOrNull { it.file.name == File(K.video).name }?.file ?: list.firstOrNull()?.file
+    fun chosen(): File? = K.video.takeIf { it.isNotEmpty() }?.let { File(it) }?.takeIf { isVideo(it) } ?: list.firstOrNull { it.file.name == File(K.video).name }?.file ?: list.firstOrNull()?.file
 }
 
 
