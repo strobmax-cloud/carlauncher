@@ -55,7 +55,7 @@ class NewYear4Mock {
     private val ctx get() = RuntimeEnvironment.getApplication()
     @Before fun fresh() { NY4Env.fresh(ctx) }
     @Test fun mockups() {
-        val out = File("/workspace/car-design/png-newyear-v4")
+        val out = File("/workspace/car-design/png-newyear-v4b").apply { mkdirs() }
         for (v in NY4.V.values()) for ((st, sc) in NY4Env.SCREENS) {
             val (a, root) = NY4Env.open(st, sc, false)
             NewYear4.attach(a, v, "$st-$sc"); NY4Env.settle(); NY4Env.relayout(root); NY4Env.settle()
@@ -76,7 +76,9 @@ object NY4Env {
         MediaHub::class.java.getDeclaredField("kind").apply { isAccessible = true }.set(MediaHub, MediaHub.Kind.NONE)
         Robo.sync = true; FmCtl.reset(); Ck.coverArt = null; Ck.coverColor = 0
         Wx.temp = -12.0; Wx.code = 73; Wx.at = System.currentTimeMillis()
-        K.nyMode = "off"; K.particles = true; K.fxAuto = false; K.fxKind = "snow"
+        // the unit has «Car Launcher — кнопки навигации» on → □ «Недавние» is shown in the ◁ ○ □ pill
+        android.provider.Settings.Secure.putString(ctx.contentResolver, android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, ctx.packageName + "/" + NavAccess::class.java.name)
+        K.nyMode = "off"; K.nyFrost = true; K.particles = true; K.fxAuto = false; K.fxKind = "snow"
     }
     fun settle(n: Int = 4) { repeat(n) { Thread.sleep(100); shadowOf(Looper.getMainLooper()).idle() } }
     fun relayout(root: View) {

@@ -53,7 +53,9 @@ object NY4 {
     }
 
     class Plan(val v: V, val name: String, val strands: List<Strand>, val back: List<Strand>, val caps: List<RectF>, val fon: Boolean, val curtain: List<Strand>,
-               val scrims: List<RectF> = emptyList(), val spray: RectF? = null)
+               val scrims: List<RectF> = emptyList(), val spray: RectF? = null) {
+        var protect: List<RectF> = emptyList()
+    }
 
     fun plan(v: V, name: String, sc: Festive.Scene): Plan {
         val fon = name.endsWith("fon")
@@ -109,8 +111,17 @@ object NY4 {
 /** under the page: corner clusters / frost, the garland (behind cards), drift or mist */
 class NY4Back(c: Context, private val pl: NY4.Plan) : View(c) {
     private val p = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
+    /** «Иней по краям»: the procedural ice-fern edge, thinned out under every text and button — built once (static bitmap) */
+    private val frostLayer: Bitmap? by lazy {
+        if (!K.nyFrost) return@lazy null
+        val b = NY4.png("ny4_frost").copy(Bitmap.Config.ARGB_8888, true); val c = Canvas(b)
+        val q = Paint(Paint.ANTI_ALIAS_FLAG).apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_OUT); color = 0xD0000000.toInt(); maskFilter = BlurMaskFilter(10f, BlurMaskFilter.Blur.NORMAL) }
+        for (r in pl.protect) c.drawRoundRect(RectF(r).apply { inset(-10f, -8f) }, 14f, 14f, q)
+        b
+    }
     override fun onDraw(cv: Canvas) {
         cv.save(); cv.scale(width / 1280f, height / 720f)
+        frostLayer?.let { cv.drawBitmap(it, 0f, 0f, p) }
         if (pl.v == NY4.V.CLASSIC) {
             cv.drawBitmap(NY4.png("ny4_tl"), 0f, 0f, p)
             for (r in pl.scrims) { p.style = Paint.Style.FILL; p.color = 0x9E0A0D16.toInt(); p.maskFilter = BlurMaskFilter(14f, BlurMaskFilter.Blur.NORMAL)
@@ -201,6 +212,7 @@ class NY4Back(c: Context, private val pl: NY4.Plan) : View(c) {
         p.style = Paint.Style.FILL
         p.shader = RadialGradient(cx, cy, 260f, intArrayOf(0x40D8E6FF, 0x16D8E6FF, 0x00D8E6FF), floatArrayOf(0f, .5f, 1f), Shader.TileMode.CLAMP)
         cv.drawCircle(cx, cy, 260f, p); p.shader = null
+        if (K.nyFrost) return      // the ice-fern edge replaces the loose crystals (same cold white, one family)
         // fine ice crystals: short feathered strokes, denser towards the corner
         val r = java.util.Random(if (sx > 0) 17 else 29)
         p.style = Paint.Style.STROKE; p.strokeCap = Paint.Cap.ROUND
@@ -255,7 +267,10 @@ class NY4Front(c: Context, private val pl: NY4.Plan) : View(c) {
 object NewYear4 {
     fun attach(a: MainActivity, v: NY4.V, name: String) {
         val st = a.ck.root.stage
-        val pl = NY4.plan(v, name, Festive.scan(a.ck.page))
+        val sc = Festive.scan(a.ck.page)
+        val pl = NY4.plan(v, name, sc)
+        // frost never sits under text or buttons (volume buttons live in the bleed bars → added by hand)
+        pl.protect = sc.blocks + sc.controls + listOf(RectF(28f, 640f, 170f, 704f), RectF(1110f, 640f, 1252f, 704f))
         st.addView(NY4Back(a, pl), st.indexOfChild(a.ck.page), FrameLayout.LayoutParams(Ck.W, Ck.H))
         st.addView(NY4Front(a, pl), st.indexOfChild(a.ck.page) + 1, FrameLayout.LayoutParams(Ck.W, Ck.H))
     }
