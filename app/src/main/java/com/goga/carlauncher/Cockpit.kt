@@ -87,7 +87,7 @@ class Cockpit(val a: MainActivity) {
     /** v1.7.4: screen 2 = «Фон» (replaces the «Природа» mode of Музыка): full-screen photo / video + minimal music */
     val fon get() = screen == 2
     val overlays = Overlays(this)
-    /** v1.7.8 «Праздничный режим» layers (garlands, snow, fir branches) */
+    /** «Праздничный режим» layers (v1.7.9: fairy lights, frost, snowdrift) */
     val ny = NyLayer(this)
 
     // live views (rebuilt with the page)
@@ -777,7 +777,7 @@ class Cockpit(val a: MainActivity) {
         val music = screen == 1
         val bigk = big()
         if (!music) {
-            val g = GaugeD(a).apply { accent = accent() }; gauge = g; page.put(g, 130, 142, 240, 240)
+            val g = GaugeD(a).apply { accent = accent() }; gauge = g; page.put(g, 130 - GaugeD.M, 142 - GaugeD.M, 240 + 2 * GaugeD.M, 240 + 2 * GaugeD.M)
             page.put(PodiumView(a).apply { big = bigk; rim = if (K.bg == "cover") accent() else Ck.theme().rim }, 0, 0, Ck.W, Ck.H)
         } else {
             val E = EqView(a).apply { home = false; accent = accent() }; eq = E; page.put(E, 0, 0, Ck.W, Ck.H)

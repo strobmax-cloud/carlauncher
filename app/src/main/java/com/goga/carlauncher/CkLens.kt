@@ -415,14 +415,18 @@ class PodiumView(c: Context) : View(c) {
 
 /** D speed gauge 0–160 km/h, 240° (mockup gaugeD). */
 class GaugeD(c: Context) : View(c) {
+    companion object { /** room around the dial for the ring stroke and its glow */ const val M = 24 }
     var speed = 0f
     var accent = 0xFFFFB08A.toInt()
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     init { setLayerType(LAYER_TYPE_SOFTWARE, null) }
     override fun onDraw(cv: Canvas) { try { drawSafe4(cv) } catch (t: Throwable) { CrashLog.soft(t) } }
     private fun drawSafe4(cv: Canvas) {
-        // view placed at (130, 142) 240×240 → local centre (120, 120)
-        val cx = width / 2f; val cy = height / 2f; val R = 120f * width / 240f
+        // v1.7.9: the view is 288×288 at (106, 118) = the 240×240 dial + [M] on every side. Before, R was half the view, so
+        // the 14 px ring (18 px + blur glow at speed) stuck out of the view by half its width and was cut flat on the
+        // left, right and top («спидометр обрезанный по краям»).
+        val k = width / (240f + 2 * M)
+        val cx = width / 2f; val cy = height / 2f; val R = 120f * k
         val a0 = 150f; val sw = 240f; val max = 160f
         val o = RectF(cx - R, cy - R, cx + R, cy + R)
         p.style = Paint.Style.STROKE; p.strokeCap = Paint.Cap.ROUND

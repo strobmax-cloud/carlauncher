@@ -573,12 +573,12 @@ class Overlays(private val ck: Cockpit) {
         sr.addView(t(18f, 0x99FFFFFF.toInt()).apply { text = "Ярко" }, lin(W.WR, W.WR))
         tw.addView(sr, lin(W.M, 44).apply { topMargin = 10 })
         add(p, "Праздничный режим  ✦",
-            segRow("Праздничный режим", "Провисающие гирлянды, снег на панелях, сугроб и еловые ветки. «Авто» — с 20 декабря по 14 января",
+            segRow("Праздничный режим", "Гирлянды из огоньков за интерфейсом, иней по краям и сугроб. «Авто» — с 20 декабря по 14 января",
                 listOf("off" to "Выкл", "on" to "Вкл", "auto" to "Авто · 20 дек – 14 янв"), K.nyMode) { K.nyMode = it; changed() },
             tw,
             segRow("Огоньки", null, listOf("warm" to "Тёплые", "multi" to "Разноцветные"), K.nyLights) { K.nyLights = it; ck.ny.apply() ; refreshSettings() },
-            W.row(a, "Снег и сугроб", "Снежинки, снег на верхних кромках панелей и сугроб внизу", W.Toggle(a, K.nySnow) { K.nySnow = it; changed() }, 76, 42),
-            W.row(a, "Еловые ветки", "Веточки по углам — никогда не закрывают текст и кнопки", W.Toggle(a, K.nyFir) { K.nyFir = it; changed() }, 76, 42),
+            W.row(a, "Снег и сугроб", "Падающий снег и чистый невысокий сугроб внизу экрана", W.Toggle(a, K.nySnow) { K.nySnow = it; changed() }, 76, 42),
+            W.row(a, "Иней по краям", "Морозные узоры у краёв экрана, как на стекле — за интерфейсом, текст не закрывают", W.Toggle(a, K.nyFrost) { K.nyFrost = it; changed() }, 76, 42),
             W.row(a, "Сейчас", Festive.status(), null))
     }
 

@@ -84,7 +84,8 @@ object K {
     /** snowfall, snow caps and the drift */
     var nySnow: Boolean get() = b("nySnow", true); set(v) = pb("nySnow", v)
     /** fir branches */
-    var nyFir: Boolean get() = b("nyFir", true); set(v) = pb("nyFir", v)
+    /** v4 design: frosted-glass ice ferns along the screen edges (static bitmap behind the UI) */
+    var nyFrost: Boolean get() = b("nyFrost", true); set(v) = pb("nyFrost", v)
     var floatX: Int get() = i("floatX", -1); set(v) = pi("floatX", v)
     var floatY: Int get() = i("floatY", -1); set(v) = pi("floatY", v)
     var lastScreen: Int get() = i("lastScreen", 0); set(v) = pi("lastScreen", v)
