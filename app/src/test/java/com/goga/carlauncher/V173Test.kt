@@ -68,9 +68,9 @@ class V173Test {
     // ---------------- 1. video folder ----------------
     @Test fun videoFoldersAnyCaseAndChosenByHand() {
         val stick = File(ctx.cacheDir, "stick").apply { deleteRecursively(); mkdirs() }
-        File(stick, "carlauncher/BACKGROUNDS").mkdirs(); File(stick, "carlauncher/BACKGROUNDS/road-night.mp4").writeBytes(ByteArray(10))
+        File(stick, "carlauncher/BACKGROUNDS").mkdirs(); File(stick, "carlauncher/BACKGROUNDS/road-night.mp4").writeBytes(ByteArray(120_000))
         assertEquals(1, Videos.dirsOn(stick).flatMap { Videos.videosIn(it) }.distinctBy { it.name }.size)
-        val mine = File(stick, "Мои видео/лето").apply { mkdirs() }; File(mine, "море.MP4").writeBytes(ByteArray(10)); File(mine, "notes.txt").writeText("x")
+        val mine = File(stick, "Мои видео/лето").apply { mkdirs() }; File(mine, "море.MP4").writeBytes(ByteArray(120_000)); File(mine, "notes.txt").writeText("x")
         K.videoDir = File(stick, "Мои видео").path
         val l = Videos.scan(ctx)
         assertTrue("sub-folder of the chosen folder: ${l.map { it.file.name }}", l.any { it.file.name == "море.MP4" })
@@ -81,7 +81,7 @@ class V173Test {
 
     @Test fun folderBrowserPicksAFolder() {
         val stick = File(ctx.cacheDir, "stick2").apply { deleteRecursively(); mkdirs() }
-        val d = File(stick, "Видео").apply { mkdirs() }; File(d, "nature-лес.mp4").writeBytes(ByteArray(10)); File(stick, "Документы").mkdirs()
+        val d = File(stick, "Видео").apply { mkdirs() }; File(d, "nature-лес.mp4").writeBytes(ByteArray(120_000)); File(stick, "Документы").mkdirs()
         shadowOf(ctx).grantPermissions(android.Manifest.permission.READ_EXTERNAL_STORAGE)
         val (a, root) = open("D", "home", music = false)
         a.ck.overlays.gallery(true); settle(); relayout(root); settle()

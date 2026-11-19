@@ -155,7 +155,7 @@ class CockpitTest {
         shot(root, "gallery")
         // a video on the "flash drive"
         val tmp = File(System.getProperty("java.io.tmpdir"), "cktest-usb").apply { deleteRecursively() }
-        File(tmp, Videos.DIR).mkdirs(); File(tmp, Videos.DIR + "/road-night_city.mp4").writeBytes(ByteArray(2048))
+        File(tmp, Videos.DIR).mkdirs(); File(tmp, Videos.DIR + "/road-night_city.mp4").writeBytes(ByteArray(120_000))
         Media.fixedVolumes = listOf(Media.Vol("USB", tmp, true))
         try {
             val l = Videos.scan(ctx)

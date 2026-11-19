@@ -87,10 +87,10 @@ class V174Test {
     // ---------------- 2. clean video picker ----------------
     @Test fun videoPickerShowsOnlyVideoFoldersWithPreviews() {
         val stick = File(ctx.cacheDir, "stick4").apply { deleteRecursively(); mkdirs() }
-        for (sys in listOf("Android/data/x", ".thumbnails", "LOST.DIR", "System Volume Information", "\$RECYCLE.BIN", "obb")) { File(stick, sys).mkdirs(); File(stick, "$sys/a.mp4").writeBytes(ByteArray(10)) }
+        for (sys in listOf("Android/data/x", ".thumbnails", "LOST.DIR", "System Volume Information", "\$RECYCLE.BIN", "obb")) { File(stick, sys).mkdirs(); File(stick, "$sys/a.mp4").writeBytes(ByteArray(120_000)) }
         File(stick, "Пусто").mkdirs(); File(stick, "Документы").mkdirs(); File(stick, "Документы/a.pdf").writeBytes(ByteArray(10))
-        File(stick, "Фильмы/дорога").mkdirs(); File(stick, "Фильмы/дорога/road-ночь.mp4").writeBytes(ByteArray(10))
-        File(stick, "клип.mp4").writeBytes(ByteArray(10)); File(stick, ".скрытый.mp4").writeBytes(ByteArray(10))
+        File(stick, "Фильмы/дорога").mkdirs(); File(stick, "Фильмы/дорога/road-ночь.mp4").writeBytes(ByteArray(120_000))
+        File(stick, "клип.mp4").writeBytes(ByteArray(120_000)); File(stick, ".скрытый.mp4").writeBytes(ByteArray(120_000))
         Videos.clearMemo()
         assertEquals(listOf("Фильмы"), Videos.videoFolders(stick).map { it.name })
         assertEquals(listOf("клип.mp4"), Videos.videoFiles(stick).map { it.name })
@@ -142,7 +142,7 @@ class V174Test {
     // ---------------- 4. videos really become the background ----------------
     @Test fun videoBackgroundOnFonAndOtherScreens() {
         val dir = File(ctx.cacheDir, "vids").apply { deleteRecursively(); mkdirs() }
-        val f = File(dir, "road-город.mp4").apply { writeBytes(ByteArray(64)) }
+        val f = File(dir, "road-город.mp4").apply { writeBytes(ByteArray(120_000)) }
         K.videoDir = dir.path; Videos.scan(ctx); K.video = f.path
         K.fonKind = "video"; K.bg = "theme"
         val (a, root) = open("D", "home")
