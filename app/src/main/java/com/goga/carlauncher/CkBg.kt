@@ -341,7 +341,7 @@ class Particles(c: Context) : View(c) {
     init { seed() }
 
     fun update() {
-        val want = kind != "none" && K.particles && isShown && windowVisibility == VISIBLE
+        val want = kind != "none" && isShown && windowVisibility == VISIBLE
         if (want && !running) { running = true; last = 0; postInvalidateOnAnimation() } else if (!want) running = false
         invalidate()
     }
@@ -351,7 +351,7 @@ class Particles(c: Context) : View(c) {
 
     override fun onDraw(cv: Canvas) { try { drawSafe2(cv) } catch (t: Throwable) { CrashLog.soft(t) } }
     private fun drawSafe2(cv: Canvas) {
-        if (kind == "none" || !K.particles) return
+        if (kind == "none") return
         val now = SystemClock.uptimeMillis()
         val dt = if (last == 0L) 0.033f else ((now - last) / 1000f).coerceAtMost(0.1f)
         last = now
